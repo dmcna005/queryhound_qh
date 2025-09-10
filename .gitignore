@@ -4,6 +4,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+queryhound-dev/
+queryhound.egg-info/
 
 # Virtual environments
 .venv/
