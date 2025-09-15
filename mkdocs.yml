@@ -1,0 +1,31 @@
+site_name: QueryHound
+site_description: "CLI tool for parsing MongoDB logs with filters and summary statistics"
+site_url: https://dmcna005.github.io/queryhound_qh/
+repo_name: dmcna005/queryhound_qh
+repo_url: https://github.com/dmcna005/queryhound_qh
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.instant
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+nav:
+  - Overview: index.md
+  - Getting Started: getting-started.md
+  - Usage & CLI Options: usage.md
+  - Examples: examples.md
+  - FAQ: faq.md
+  - Release Notes: release-notes.md
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
