@@ -22,6 +22,6 @@ qh <logfile> [options]
 - `-v, --version` — Show version and exit
 
 Notes:
+
 - When `--pvalue` is `P50`, the median column is added.
 - When `--pstats` is set, P75/P90/P99 columns are included.
-
