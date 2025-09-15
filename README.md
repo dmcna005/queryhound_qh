@@ -10,10 +10,3 @@ Get started:
 pip install -U queryhound
 qh --help
 ```
-
-Docs development (optional):
-
-```bash
-pip install mkdocs mkdocs-material mkdocs-include-markdown-plugin
-mkdocs serve
-```
