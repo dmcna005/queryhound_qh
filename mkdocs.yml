@@ -19,7 +19,6 @@ theme:
       accent: indigo
 plugins:
   - search
-  - include-markdown
 nav:
   - Overview: index.md
   - Getting Started: getting-started.md
