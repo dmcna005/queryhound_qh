@@ -9,6 +9,7 @@ import sys
 import re
 import os
 from pathlib import Path
+from . import __version__
 
 
 def _ensure_user_path_updated():
@@ -242,7 +243,7 @@ def main():
     # Ensure PATH includes user scripts dir so invoking `qh` after install works without manual edits.
     _ensure_user_path_updated()
     parser = argparse.ArgumentParser(description="QueryHound - MongoDB Log Filter Tool")
-    parser.add_argument("logfile", help="Path to MongoDB JSON log file")
+    parser.add_argument("logfile", nargs='?', help="Path to MongoDB JSON log file")
     parser.add_argument("--scan", action="store_true", help="Only show COLLSCAN queries")
     parser.add_argument("--slow", action="store_true", help="Only show slow queries (ms >= 100)")
     parser.add_argument("--start-date", type=str, help="Start date (ISO 8601 or 'YYYY-MM-DD')")
@@ -254,10 +255,19 @@ def main():
     parser.add_argument("--output-csv", type=str, help="Write output to CSV")
     parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
     parser.add_argument("--connections", action="store_true", help="Displays connection count")
+    parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
 
     args = parser.parse_args()
 
     try:
+        if args.version:
+            print(f"queryhound version {__version__}")
+            sys.exit(0)
+
+        if not args.logfile:
+            parser.print_help()
+            print("\nError: logfile is required unless --version is used.")
+            sys.exit(2)
         args.start_date = parse_date(args.start_date) if args.start_date else None
         args.end_date = parse_date(args.end_date) if args.end_date else None
     except ValueError as e:

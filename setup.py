@@ -6,7 +6,7 @@ readme = (this_dir / "README.md").read_text(encoding="utf-8") if (this_dir / "RE
 
 setup(
     name="queryhound",
-    version="0.2.0",
+    version="0.3.0",
     description="CLI tool for parsing MongoDB logs with filters and summary statistics",
     long_description=readme,
     long_description_content_type="text/markdown",
