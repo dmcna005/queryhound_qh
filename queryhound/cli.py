@@ -7,6 +7,58 @@ from tabulate import tabulate
 import csv
 import sys
 import re
+import os
+from pathlib import Path
+
+
+def _ensure_user_path_updated():
+    """Attempt to ensure the user install bin directory is on PATH.
+
+    This is a best-effort, non-interactive helper. It prepends the bin path for the
+    running interpreter's user base (e.g. ~/Library/Python/3.13/bin on macOS) to PATH for
+    the current process and, if not already present in the user's shell startup file,
+    appends a line to ~/.zprofile (preferred for login shells) or ~/.zshrc as fallback.
+
+    Opt-out: set environment variable QUERYHOUND_SKIP_PATH_UPDATE=1 before running.
+    """
+    if os.environ.get("QUERYHOUND_SKIP_PATH_UPDATE") == "1":
+        return
+    try:
+        user_base = sys.base_prefix  # fallback; better via site.getusersitepackages()
+        try:
+            import site
+            user_base = site.getuserbase()
+        except Exception:
+            pass
+        candidate_bin = Path(user_base) / "bin"
+        if not candidate_bin.exists():
+            # macOS user installs often are in ~/Library/Python/{major.minor}/bin
+            alt = Path.home() / "Library" / "Python" / f"{sys.version_info.major}.{sys.version_info.minor}" / "bin"
+            if alt.exists():
+                candidate_bin = alt
+        # Update in-process PATH
+        path_parts = os.environ.get("PATH", "").split(":")
+        if str(candidate_bin) not in path_parts:
+            os.environ["PATH"] = f"{candidate_bin}:{os.environ.get('PATH','')}"
+        # Persist for future shells if missing
+        zprofile = Path.home() / ".zprofile"
+        zshrc = Path.home() / ".zshrc"
+        target_rc = zprofile if zprofile.exists() else zshrc
+        export_line = f'export PATH="{candidate_bin}:$PATH"'\
+            if str(candidate_bin) not in os.environ.get("PATH", "") else None
+        if export_line:
+            try:
+                # Only append if not already present in the file
+                if target_rc.exists():
+                    existing = target_rc.read_text(errors="ignore")
+                    if str(candidate_bin) in existing:
+                        return
+                with target_rc.open("a") as fh:
+                    fh.write(f"\n# Added by queryhound to ensure qh is on PATH\n{export_line}\n")
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def parse_date(date_str):
@@ -187,6 +239,8 @@ def write_csv(output_file, data, headers):
 
 
 def main():
+    # Ensure PATH includes user scripts dir so invoking `qh` after install works without manual edits.
+    _ensure_user_path_updated()
     parser = argparse.ArgumentParser(description="QueryHound - MongoDB Log Filter Tool")
     parser.add_argument("logfile", help="Path to MongoDB JSON log file")
     parser.add_argument("--scan", action="store_true", help="Only show COLLSCAN queries")
