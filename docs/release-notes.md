@@ -1,5 +1,11 @@
 # Release Notes
 
+## 0.5.0
+
+- Derive operation from `attr.type` when present
+- Add Query Shape column (uses `queryShapeHash` or derived from command object)
+- Truncation improvements for new column
+
 ## 0.4.0
 
 - Add `--connections` mode aggregating connection events by remote IP and app name
