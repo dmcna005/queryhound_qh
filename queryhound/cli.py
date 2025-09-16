@@ -13,6 +13,7 @@ from . import __version__
 
 TRUNC_PLAN_LEN = 60
 TRUNC_APP_LEN = 40
+TRUNC_SHAPE_LEN = 80
 
 
 def _truncate(text, max_len, verbose=False):
@@ -106,6 +107,34 @@ def parse_log_line(line):
         query = attr.get("query") or attr.get("filter")
         plan = attr.get("planSummary")
         command = entry.get("msg", "")
+        # Command object (raw) for deriving query shape when available
+        command_obj = attr.get("command") if isinstance(attr.get("command"), dict) else None
+        query_shape_hash = attr.get("queryShapeHash") or attr.get("queryShapeId")
+        query_shape = None
+        if query_shape_hash:
+            query_shape = query_shape_hash
+        elif command_obj:
+            op_keys_priority = ["find", "aggregate", "update", "delete", "insert", "count"]
+            primary = next((k for k in op_keys_priority if k in command_obj), None)
+            if not primary and command_obj:
+                primary = next(iter(command_obj.keys()))
+            extras = []
+            if "pipeline" in command_obj and isinstance(command_obj.get("pipeline"), list):
+                extras.append(f"pipeline[{len(command_obj['pipeline'])}]")
+            if "filter" in command_obj:
+                extras.append("filter")
+            if "query" in command_obj:
+                extras.append("query")
+            # Shallow detection of $match stage
+            try:
+                snippet = json.dumps(command_obj, default=str)[:800]
+                if "$match" in snippet:
+                    extras.append("$match")
+            except Exception:
+                pass
+            parts = [p for p in [primary] + extras if p]
+            if parts:
+                query_shape = ":".join(parts)
         # Try multiple locations for application name seen in connection metadata
         app_name = (
             attr.get("appName")
@@ -124,9 +153,12 @@ def parse_log_line(line):
 
         operation = "Unknown"
         cmd_l = command.lower()
+        attr_type = attr.get("type")
         # Detect connection acceptance events
         if "connection accepted" in cmd_l or ("connection" in cmd_l and "accepted" in cmd_l):
             operation = "Connection"
+        elif attr_type:  # Prefer explicit attr.type when present
+            operation = str(attr_type).capitalize()
         elif 'find' in command.lower():
             operation = "Find"
         elif 'insert' in command.lower():
@@ -149,7 +181,8 @@ def parse_log_line(line):
             'docs_examined': docs_examined,
             'nreturned': nreturned,
             'line': line.strip(),
-            'remote_ip': remote_ip
+            'remote_ip': remote_ip,
+            'query_shape': query_shape
         }
 
     except json.JSONDecodeError:
@@ -167,7 +200,7 @@ def is_within_date(timestamp, start_date, end_date):
 
 
 def process_log(file_path, args):
-    results = defaultdict(lambda: {'ms_list': [], 'count': 0, 'plan': '', 'namespace': '', 'operation': '', 'app_name': '', 'keys_examined': 0, 'docs_examined': 0, 'nreturned': 0, 'remote_ip': ''})
+    results = defaultdict(lambda: {'ms_list': [], 'count': 0, 'plan': '', 'namespace': '', 'operation': '', 'app_name': '', 'keys_examined': 0, 'docs_examined': 0, 'nreturned': 0, 'remote_ip': '', 'query_shape': ''})
     log_lines = []
 
     with open(file_path, 'r') as f:
@@ -205,6 +238,8 @@ def process_log(file_path, args):
             results[key]['docs_examined'] += entry['docs_examined']
             results[key]['nreturned'] += entry['nreturned']
             results[key]['remote_ip'] = entry['remote_ip']
+            if entry.get('query_shape') and not results[key]['query_shape']:
+                results[key]['query_shape'] = entry['query_shape']
 
             if args.filter:
                 log_lines.append(entry['line'])
@@ -244,15 +279,17 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
         count = data['count']
         if not ms_list:
             continue
-        # Truncate plan & app name for non-verbose display
+        # Truncate fields for non-verbose display
         if truncate:
             display_plan = _truncate(plan, TRUNC_PLAN_LEN, verbose=verbose)
             display_app = _truncate(data['app_name'], TRUNC_APP_LEN, verbose=verbose)
+            display_shape = _truncate(data.get('query_shape') or '', TRUNC_SHAPE_LEN, verbose=verbose)
         else:
             display_plan = plan
             display_app = data['app_name']
+            display_shape = data.get('query_shape') or ''
 
-        row = [operation, display_plan]
+        row = [operation, display_plan, display_shape]
         if pvalue and pvalue.lower() == 'p50':
             row.append(round(median(ms_list), 2))
 
@@ -367,7 +404,7 @@ def main():
                 truncate=(not args.verbose and (args.slow or args.scan))
             )
             if table:
-                headers = ["Operation", "Plan"]
+                headers = ["Operation", "Plan", "Query Shape"]
                 if args.pvalue and args.pvalue.lower() == 'p50':
                     headers.append("P50")
                 headers += ["Avg ms", "Keys Examined", "Docs Examined", "NReturned"]
