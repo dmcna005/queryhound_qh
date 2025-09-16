@@ -11,6 +11,20 @@ import os
 from pathlib import Path
 from . import __version__
 
+TRUNC_PLAN_LEN = 60
+TRUNC_APP_LEN = 40
+
+
+def _truncate(text, max_len, verbose=False):
+    if verbose:
+        return text
+    if text is None:
+        return ''
+    s = str(text)
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 1] + '…'
+
 
 def _ensure_user_path_updated():
     """Attempt to ensure the user install bin directory is on PATH.
@@ -92,7 +106,13 @@ def parse_log_line(line):
         query = attr.get("query") or attr.get("filter")
         plan = attr.get("planSummary")
         command = entry.get("msg", "")
-        app_name = attr.get("appName", "")
+        # Try multiple locations for application name seen in connection metadata
+        app_name = (
+            attr.get("appName")
+            or attr.get("applicationName")
+            or (attr.get("client", {}).get("application", {}).get("name") if isinstance(attr.get("client"), dict) else None)
+            or ""
+        )
         keys_examined = attr.get("keysExamined", 0)
         docs_examined = attr.get("docsExamined", 0)
         nreturned = attr.get("nreturned", 0)
@@ -103,7 +123,11 @@ def parse_log_line(line):
         app_name_cleaned = re.sub(r"\s*\(.*\)", "", app_name_cleaned)
 
         operation = "Unknown"
-        if 'find' in command.lower():
+        cmd_l = command.lower()
+        # Detect connection acceptance events
+        if "connection accepted" in cmd_l or ("connection" in cmd_l and "accepted" in cmd_l):
+            operation = "Connection"
+        elif 'find' in command.lower():
             operation = "Find"
         elif 'insert' in command.lower():
             operation = "Insert"
@@ -159,7 +183,8 @@ def process_log(file_path, args):
                 continue
             if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
                 continue
-            if args.scan and entry['plan'] != "COLLSCAN":
+            # Scan mode: include any plan summaries that contain COLLSCAN
+            if args.scan and (entry['plan'] is None or "COLLSCAN" not in str(entry['plan'])):
                 continue
             if args.slow and (entry['ms'] is None or entry['ms'] < 100):
                 continue
@@ -167,8 +192,7 @@ def process_log(file_path, args):
                 continue
             if entry['ms'] is None:
                 continue
-            if args.connections and entry['operation'] == "Connection":
-                continue
+            # Connection aggregation handled separately
 
             key = (entry['operation'], entry['plan'], entry['namespace'], str(entry['query']))
             results[key]['ms_list'].append(entry['ms'])
@@ -188,7 +212,31 @@ def process_log(file_path, args):
     return results, log_lines
 
 
-def summarize_results(results, pvalue=None, include_pstats=False):
+def process_connections(file_path, args):
+    """Aggregate connection-accepted events by remote IP and app name."""
+    from collections import Counter
+    counts = Counter()
+    with open(file_path, 'r') as f:
+        for line in f:
+            if args.filter and not any(m.lower() in line.lower() for m in args.filter):
+                continue
+            entry = parse_log_line(line)
+            if not entry:
+                continue
+            # Date filtering if present
+            if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
+                continue
+            if entry.get('operation') != 'Connection':
+                continue
+            ip = entry.get('remote_ip') or 'Unknown'
+            app = entry.get('app_name') or ''
+            counts[(ip, app)] += 1
+    # Prepare rows sorted by count desc
+    rows = [ (ip, app, cnt) for (ip, app), cnt in counts.most_common() ]
+    return rows
+
+
+def summarize_results(results, pvalue=None, include_pstats=False, verbose=False, truncate=False):
     table = []
 
     for (operation, plan, namespace, query), data in results.items():
@@ -196,8 +244,15 @@ def summarize_results(results, pvalue=None, include_pstats=False):
         count = data['count']
         if not ms_list:
             continue
+        # Truncate plan & app name for non-verbose display
+        if truncate:
+            display_plan = _truncate(plan, TRUNC_PLAN_LEN, verbose=verbose)
+            display_app = _truncate(data['app_name'], TRUNC_APP_LEN, verbose=verbose)
+        else:
+            display_plan = plan
+            display_app = data['app_name']
 
-        row = [operation, plan]
+        row = [operation, display_plan]
         if pvalue and pvalue.lower() == 'p50':
             row.append(round(median(ms_list), 2))
 
@@ -225,7 +280,7 @@ def summarize_results(results, pvalue=None, include_pstats=False):
         row.extend([
             data['operation'],
             count,
-            data['app_name']
+            display_app
         ])
         table.append(row)
 
@@ -254,7 +309,8 @@ def main():
     parser.add_argument("--pvalue", type=str, choices=['P50', 'P75', 'P90', 'P99'], help="Specify a specific p-stat to include")
     parser.add_argument("--output-csv", type=str, help="Write output to CSV")
     parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
-    parser.add_argument("--connections", action="store_true", help="Displays connection count")
+    parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
+    parser.add_argument("--verbose", action="store_true", help="Show full field values without truncation")
     parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
 
     args = parser.parse_args()
@@ -262,6 +318,28 @@ def main():
     try:
         if args.version:
             print(f"queryhound version {__version__}")
+            sys.exit(0)
+
+        # Connections mode doesn't require other options
+        if args.connections:
+            if not args.logfile:
+                parser.print_help()
+                print("\nError: logfile is required for --connections mode.")
+                sys.exit(2)
+            # parse dates if provided
+            results = process_connections(args.logfile, args)
+            if results:
+                print("\nConnections:")
+                # Truncate app name unless verbose
+                if not args.verbose:
+                    display_rows = []
+                    for ip, app, cnt in results:
+                        display_rows.append([ip, _truncate(app, TRUNC_APP_LEN, verbose=False), cnt])
+                else:
+                    display_rows = results
+                print(tabulate(display_rows, headers=["Remote IP", "App Name", "Count"], tablefmt="pretty"))
+            else:
+                print("No connections found in the provided timeframe.")
             sys.exit(0)
 
         if not args.logfile:
@@ -281,7 +359,13 @@ def main():
         headers = []
 
         if results and (args.scan or args.slow or args.pstats or args.pvalue):
-            table = summarize_results(results, pvalue=args.pvalue, include_pstats=args.pstats)
+            table = summarize_results(
+                results,
+                pvalue=args.pvalue,
+                include_pstats=args.pstats,
+                verbose=args.verbose,
+                truncate=(not args.verbose and (args.slow or args.scan))
+            )
             if table:
                 headers = ["Operation", "Plan"]
                 if args.pvalue and args.pvalue.lower() == 'p50':
