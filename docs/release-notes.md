@@ -1,5 +1,9 @@
 # Release Notes
 
+## 0.6.0
+
+- Add `--error` mode to list severity Error/Fatal (E/F) entries with truncated messages (use `--verbose` for full)
+
 ## 0.5.0
 
 - Derive operation from `attr.type` when present
