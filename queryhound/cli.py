@@ -14,6 +14,7 @@ from . import __version__
 TRUNC_PLAN_LEN = 60
 TRUNC_APP_LEN = 40
 TRUNC_SHAPE_LEN = 80
+TRUNC_ERRMSG_LEN = 120
 
 
 def _truncate(text, max_len, verbose=False):
@@ -347,6 +348,7 @@ def main():
     parser.add_argument("--output-csv", type=str, help="Write output to CSV")
     parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
     parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
+    parser.add_argument("--error", action="store_true", help="Show only error / fatal log lines (severity E/F)")
     parser.add_argument("--verbose", action="store_true", help="Show full field values without truncation")
     parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
 
@@ -377,6 +379,46 @@ def main():
                 print(tabulate(display_rows, headers=["Remote IP", "App Name", "Count"], tablefmt="pretty"))
             else:
                 print("No connections found in the provided timeframe.")
+            sys.exit(0)
+
+        # Error mode
+        if args.error:
+            if not args.logfile:
+                parser.print_help()
+                print("\nError: logfile is required for --error mode.")
+                sys.exit(2)
+            # Process errors
+            rows = []
+            try:
+                with open(args.logfile, 'r') as f:
+                    for line in f:
+                        try:
+                            entry = json.loads(line)
+                        except Exception:
+                            continue
+                        sev = entry.get('s')
+                        if sev not in ('E','F'):
+                            continue
+                        ts_raw = entry.get('t',{}).get('$date')
+                        try:
+                            ts_disp = datetime.fromisoformat(ts_raw.replace('Z','+00:00')).isoformat() if ts_raw else '-'
+                        except Exception:
+                            ts_disp = ts_raw or '-'
+                        comp = entry.get('c','')
+                        _id = entry.get('id','')
+                        msg = entry.get('msg','')
+                        if not args.verbose:
+                            msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
+                        sev_disp = 'Error' if sev=='E' else 'Fatal'
+                        rows.append([ts_disp, sev_disp, comp, _id, msg])
+                if rows:
+                    print("\nErrors:")
+                    print(tabulate(rows, headers=["Timestamp","Severity","Component","ID","Message"], tablefmt="pretty"))
+                else:
+                    print("No error/fatal entries found.")
+            except Exception as e:
+                print(f"Error processing error log lines: {e}")
+                sys.exit(1)
             sys.exit(0)
 
         if not args.logfile:
