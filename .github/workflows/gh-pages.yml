@@ -1,3 +1,5 @@
+# (Deprecated) Fallback gh-pages branch deploy. Using official GitHub Actions Pages workflow now.
+# Safe to delete after confirming Actions-based deployment works.
 name: gh-pages-fallback
 
 on:
@@ -5,9 +7,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'mkdocs.yml'
-      - 'docs/**'
-      - '.github/workflows/gh-pages.yml'
+      - "mkdocs.yml"
+      - "docs/**"
+      - ".github/workflows/gh-pages.yml"
 
 permissions:
   contents: write
@@ -19,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - name: Install MkDocs
         run: |
           python -m pip install --upgrade pip
