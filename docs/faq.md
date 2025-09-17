@@ -11,3 +11,19 @@ If the user scripts dir isn’t on PATH, it appends an export line to `~/.zprofi
 ## What log format is supported?
 
 MongoDB JSON structured logs.
+
+## How is Query Shape determined?
+
+Priority: existing `queryShapeHash` / `queryShapeId`; else a derived concise signature from the command body or pipeline.
+
+## Why are some fields truncated?
+
+To keep tables readable. Use `--verbose` to disable truncation.
+
+## Will `--output-csv` include error or connection tables?
+
+No, it only exports the slow / scan summary table.
+
+## How do I only see fatal issues?
+
+Use `--error` then filter the output (Fatal shows severity `F`).

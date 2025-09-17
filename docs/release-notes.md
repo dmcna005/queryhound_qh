@@ -13,7 +13,7 @@
 ## 0.4.0
 
 - Add `--connections` mode aggregating connection events by remote IP and app name
-- Add truncation of long plan/app fields for `--slow` / `--scan` tables
+- Truncate long plan / app fields for `--slow` / `--scan` tables
 - Add `--verbose` flag to show full untruncated values
 
 ## 0.3.0

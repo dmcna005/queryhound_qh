@@ -1,36 +1,36 @@
 # Examples
 
-## 1) Show slow queries only
+## 1) Slow queries only
 
 ```bash
 qh mongodb.log --slow
 ```
 
-## 2) Show COLLSCANs only
+## 2) COLLSCANs only
 
 ```bash
 qh mongodb.log --scan
 ```
 
-## 3) Filter by namespace and minimum duration
+## 3) Namespace + minimum duration filter
 
 ```bash
 qh mongodb.log --namespace app.users --min-ms 50
 ```
 
-## 4) Include percentile stats and export CSV
+## 4) Percentile stats + CSV export
 
 ```bash
-qh mongodb.log --pstats --output-csv report.csv mongodb.log
+qh mongodb.log --pstats --output-csv report.csv
 ```
 
-## 5) Filter lines by keywords
+## 5) Filter raw lines by keywords (plus summary)
 
 ```bash
 qh mongodb.log --filter "index" "COLLSCAN"
 ```
 
-## 6) Show connection sources (top IP + App pairs)
+## 6) Connection sources (Remote IP + App)
 
 ```bash
 qh mongodb.log --connections
@@ -42,13 +42,13 @@ Verbose (no truncation):
 qh mongodb.log --connections --verbose
 ```
 
-## 7) Slow queries with full, untruncated plan summaries
+## 7) Slow queries with full plan summaries
 
 ```bash
 qh mongodb.log --slow --verbose
 ```
 
-## 8) Combined: slow COLLSCAN queries with percentile stats
+## 8) Slow COLLSCAN queries with percentile stats
 
 ```bash
 qh mongodb.log --slow --scan --pstats
@@ -56,14 +56,42 @@ qh mongodb.log --slow --scan --pstats
 
 ## 9) Slow queries within a date range
 
-Show only slow queries between Sept 10 and Sept 12 (UTC assumed if no timezone provided):
-
 ```bash
 qh mongodb.log --slow --start-date 2025-09-10 --end-date 2025-09-12
 ```
 
-With percentile stats and verbose (no truncation):
+With percentile stats + verbose:
 
 ```bash
 qh mongodb.log --slow --start-date 2025-09-10T00:00:00 --end-date 2025-09-12T23:59:59 --pstats --verbose
+```
+
+## 10) Inspect only errors and fatals
+
+```bash
+qh mongodb.log --error
+```
+
+Show full messages:
+
+```bash
+qh mongodb.log --error --verbose
+```
+
+## 11) Focus on one percentile
+
+```bash
+qh mongodb.log --slow --pvalue P90
+```
+
+## 12) Drill into a namespace and export
+
+```bash
+qh mongodb.log --scan --namespace sales.orders --output-csv sales_collscan.csv
+```
+
+## 13) Combine filter & error mode
+
+```bash
+qh mongodb.log --filter "ReplicaSetMonitor" --error
 ```
