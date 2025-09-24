@@ -58,6 +58,68 @@ def _validate_logfile(logfile_path):
     return True
 
 
+def _extract_command_query_shape(command_obj):
+    """
+    Extract query shape from MongoDB command object.
+    Handles both find and aggregate commands properly.
+    """
+    if not isinstance(command_obj, dict):
+        return None
+    
+    query_shape_parts = []
+    
+    # Handle find commands
+    if 'find' in command_obj:
+        query_shape_parts.append('find')
+        
+        # Add filter information
+        if 'filter' in command_obj:
+            filter_obj = command_obj['filter']
+            if isinstance(filter_obj, dict) and filter_obj:
+                # Create a simplified shape representation
+                filter_keys = sorted(filter_obj.keys())
+                if filter_keys:
+                    query_shape_parts.append(f"filter:{','.join(filter_keys)}")
+                else:
+                    query_shape_parts.append("filter:empty")
+            else:
+                query_shape_parts.append("filter")
+        
+        # Add sort information if present
+        if 'sort' in command_obj:
+            sort_obj = command_obj['sort']
+            if isinstance(sort_obj, dict) and sort_obj:
+                sort_keys = sorted(sort_obj.keys())
+                query_shape_parts.append(f"sort:{','.join(sort_keys)}")
+    
+    # Handle aggregate commands
+    elif 'aggregate' in command_obj:
+        query_shape_parts.append('aggregate')
+        
+        # Add pipeline information
+        if 'pipeline' in command_obj:
+            pipeline = command_obj['pipeline']
+            if isinstance(pipeline, list) and pipeline:
+                # Extract stage types from pipeline
+                stages = []
+                for stage in pipeline:
+                    if isinstance(stage, dict):
+                        # Get the stage operator (like $match, $group, etc.)
+                        stage_ops = [key for key in stage.keys() if key.startswith('$')]
+                        if stage_ops:
+                            stages.extend(stage_ops)
+                
+                if stages:
+                    query_shape_parts.append(f"pipeline:[{','.join(stages)}]")
+                else:
+                    query_shape_parts.append(f"pipeline:[{len(pipeline)}]")
+            else:
+                query_shape_parts.append("pipeline")
+    
+    # Return joined shape or None if no recognizable pattern
+    return ':'.join(query_shape_parts) if query_shape_parts else None
+
+
 def _ensure_user_path_updated():
     """Attempt to ensure the user install bin directory is on PATH.
 
@@ -320,6 +382,7 @@ def process_queries(logfile_path, args):
     """
     Process distinct queries: Extract query shapes, count executions,
     and track source information (app name or IP) for top 10 queries.
+    Specifically looks for COMMAND entries (c: "COMMAND") with aggregate or find operations.
     """
     if not _validate_logfile(logfile_path):
         return []
@@ -330,6 +393,22 @@ def process_queries(logfile_path, args):
         with open(logfile_path, 'r') as f:
             for line in f:
                 try:
+                    # Parse raw JSON to check for COMMAND entries
+                    raw_entry = json.loads(line)
+                    
+                    # Only process COMMAND entries
+                    if raw_entry.get('c') != 'COMMAND':
+                        continue
+                    
+                    # Check for command structure in attr
+                    attr = raw_entry.get('attr', {})
+                    command_obj = attr.get('command', {})
+                    
+                    # Must have aggregate or find command
+                    if not ('aggregate' in command_obj or 'find' in command_obj):
+                        continue
+                    
+                    # Parse using existing function for consistency with date filtering
                     entry = parse_log_line(line)
                     if not entry:
                         continue
@@ -341,11 +420,8 @@ def process_queries(logfile_path, args):
                     if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
                         continue
                     
-                    # Get query shape - prioritize existing shape, then derive from command
-                    query_shape = entry.get('query_shape', '')
-                    if not query_shape and entry.get('query'):
-                        # Simple fallback - use operation type
-                        query_shape = entry.get('operation', 'unknown')
+                    # Extract query shape from command structure
+                    query_shape = _extract_command_query_shape(command_obj)
                     
                     if not query_shape:
                         continue
