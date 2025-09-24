@@ -20,6 +20,7 @@ qh <logfile> [options]
 - `--filter <str ...>` — Show lines containing any provided strings (also prints matching raw lines)
 - `--connections` — Aggregate connection accepted events by Remote IP + App Name
 - `--error` — Show only Error / Fatal severity log lines (`s` in {E,F})
+- `-q, --query` — Show top 10 distinct queries with shape, count, and source
 - `--verbose` — Disable truncation (Plan / App Name / Query Shape / Error Message)
 - `-v, --version` — Show version and exit
 
@@ -50,6 +51,14 @@ Purpose: cluster similar logical operations without dumping full query bodies.
 
 `--error` filters lines whose severity field `s` is `E` (Error) or `F` (Fatal) and prints a table of: Timestamp, Severity, Component, ID, Message (truncated unless `--verbose`).
 
+## Query Mode
+
+`--query` shows the top 10 most frequently executed distinct queries. For each query it displays:
+
+- Query Shape: The query pattern (queryShapeHash if available, or derived signature)
+- Count: Number of times this query was executed
+- Sources: Application names or IP addresses that executed this query (up to 3 shown)
+
 ## CSV Output
 
 `--output-csv` exports only the tabular slow/scan summary (not raw filtered lines or connections/errors output).
@@ -64,4 +73,5 @@ qh mongo.log --scan --pvalue P90
 qh mongo.log --slow --namespace sales.orders --min-ms 250
 qh mongo.log --slow --start-date 2025-09-15 --end-date 2025-09-16 --pvalue P50
 qh mongo.log --error --verbose
+qh mongo.log --query --namespace mydb.users
 ```

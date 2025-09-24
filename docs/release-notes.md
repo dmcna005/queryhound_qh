@@ -1,5 +1,9 @@
 # Release Notes
 
+## 0.7.0
+
+- Add `-q, --query` mode to show top 10 distinct queries with query shape, execution count, and source information (app name or IP)
+
 ## 0.6.0
 
 - Add `--error` mode to list severity Error/Fatal (E/F) entries with truncated messages (use `--verbose` for full)

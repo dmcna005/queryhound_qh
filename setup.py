@@ -6,7 +6,7 @@ readme = (this_dir / "README.md").read_text(encoding="utf-8") if (this_dir / "RE
 
 setup(
     name="queryhound",
-    version="0.6.0",
+    version="0.7.0",
     description="CLI tool for parsing MongoDB logs with filters and summary statistics",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -17,6 +17,9 @@ setup(
     packages=find_packages(include=["queryhound", "queryhound.*"]),
     include_package_data=True,
     install_requires=["tabulate", "numpy", "pandas"],
+    extras_require={
+        'dev': ['pytest']
+    },
     entry_points={
         'console_scripts': [
             'qh=queryhound.cli:run'

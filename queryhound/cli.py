@@ -272,6 +272,66 @@ def process_connections(file_path, args):
     return rows
 
 
+def process_queries(logfile_path, args):
+    """
+    Process distinct queries: Extract query shapes, count executions,
+    and track source information (app name or IP) for top 10 queries.
+    """
+    query_stats = defaultdict(lambda: {'count': 0, 'sources': set()})
+    
+    with open(logfile_path, 'r') as f:
+        for line in f:
+            try:
+                entry = parse_log_line(line)
+                if not entry:
+                    continue
+                
+                if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
+                    continue
+                if args.namespace and args.namespace != entry['namespace']:
+                    continue
+                if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
+                    continue
+                
+                # Get query shape - prioritize existing shape, then derive from command
+                query_shape = entry.get('query_shape', '')
+                if not query_shape and entry.get('query'):
+                    # Simple fallback - use operation type
+                    query_shape = entry.get('operation', 'unknown')
+                
+                if not query_shape:
+                    continue
+                
+                # Determine source (app name or IP)
+                source = entry.get('app_name', '').strip()
+                if not source:
+                    source = entry.get('remote_ip', '').strip()
+                if not source:
+                    source = 'Unknown'
+                
+                query_stats[query_shape]['count'] += 1
+                query_stats[query_shape]['sources'].add(source)
+                
+            except Exception:
+                continue
+    
+    # Convert to list and sort by count (top 10)
+    result = []
+    for shape, stats in query_stats.items():
+        sources_str = ', '.join(sorted(list(stats['sources']))[:3])  # Show up to 3 sources
+        if len(stats['sources']) > 3:
+            sources_str += f" (+{len(stats['sources']) - 3} more)"
+        
+        result.append([
+            _truncate(shape, TRUNC_SHAPE_LEN, args.verbose),
+            stats['count'],
+            _truncate(sources_str, TRUNC_APP_LEN * 2, args.verbose)
+        ])
+    
+    # Sort by count descending and return top 10
+    return sorted(result, key=lambda x: x[1], reverse=True)[:10]
+
+
 def summarize_results(results, pvalue=None, include_pstats=False, verbose=False, truncate=False):
     table = []
 
@@ -349,6 +409,7 @@ def main():
     parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
     parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
     parser.add_argument("--error", action="store_true", help="Show only error / fatal log lines (severity E/F)")
+    parser.add_argument("-q", "--query", action="store_true", help="Show top 10 distinct queries with shape, count, and source")
     parser.add_argument("--verbose", action="store_true", help="Show full field values without truncation")
     parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
 
@@ -379,6 +440,20 @@ def main():
                 print(tabulate(display_rows, headers=["Remote IP", "App Name", "Count"], tablefmt="pretty"))
             else:
                 print("No connections found in the provided timeframe.")
+            sys.exit(0)
+
+        # Query mode - show top 10 distinct queries
+        if args.query:
+            if not args.logfile:
+                parser.print_help()
+                print("\nError: logfile is required for --query mode.")
+                sys.exit(2)
+            results = process_queries(args.logfile, args)
+            if results:
+                print("\nTop 10 Distinct Queries:")
+                print(tabulate(results, headers=["Query Shape", "Count", "Sources"], tablefmt="pretty"))
+            else:
+                print("No queries found in the provided timeframe.")
             sys.exit(0)
 
         # Error mode
