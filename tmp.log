@@ -1,0 +1,1 @@
+{"t":{"$date":"2025-09-10T12:00:00Z"},"msg":"connection accepted","attr":{"remote":"10.1.2.3:27017","appName":"MyExtremelyLongApplicationNameThatShouldBeTruncatedBecauseItIsWayTooVerbose"}}

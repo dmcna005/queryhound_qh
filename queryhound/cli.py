@@ -28,6 +28,36 @@ def _truncate(text, max_len, verbose=False):
     return s[: max_len - 1] + '…'
 
 
+def _validate_logfile(logfile_path):
+    """Validate that the log file exists and is readable."""
+    if not logfile_path:
+        print("Error: No logfile specified.")
+        return False
+    
+    if not os.path.exists(logfile_path):
+        print(f"Error: File '{logfile_path}' not found.")
+        print("Please check the file path and try again.")
+        return False
+    
+    if not os.path.isfile(logfile_path):
+        print(f"Error: '{logfile_path}' is not a file.")
+        return False
+    
+    try:
+        with open(logfile_path, 'r') as f:
+            # Try to read the first line to check if file is readable
+            f.readline()
+    except PermissionError:
+        print(f"Error: Permission denied reading '{logfile_path}'.")
+        print("Please check file permissions and try again.")
+        return False
+    except Exception as e:
+        print(f"Error: Cannot read '{logfile_path}': {e}")
+        return False
+    
+    return True
+
+
 def _ensure_user_path_updated():
     """Attempt to ensure the user install bin directory is on PATH.
 
@@ -201,72 +231,86 @@ def is_within_date(timestamp, start_date, end_date):
 
 
 def process_log(file_path, args):
+    if not _validate_logfile(file_path):
+        return {}, []
+    
     results = defaultdict(lambda: {'ms_list': [], 'count': 0, 'plan': '', 'namespace': '', 'operation': '', 'app_name': '', 'keys_examined': 0, 'docs_examined': 0, 'nreturned': 0, 'remote_ip': '', 'query_shape': ''})
     log_lines = []
 
-    with open(file_path, 'r') as f:
-        for line in f:
-            if args.filter and not any(m.lower() in line.lower() for m in args.filter):
-                continue
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if args.filter and not any(m.lower() in line.lower() for m in args.filter):
+                    continue
 
-            entry = parse_log_line(line)
-            if not entry:
-                continue
+                entry = parse_log_line(line)
+                if not entry:
+                    continue
 
-            if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
-                continue
-            if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
-                continue
-            # Scan mode: include any plan summaries that contain COLLSCAN
-            if args.scan and (entry['plan'] is None or "COLLSCAN" not in str(entry['plan'])):
-                continue
-            if args.slow and (entry['ms'] is None or entry['ms'] < 100):
-                continue
-            if args.namespace and args.namespace != entry['namespace']:
-                continue
-            if entry['ms'] is None:
-                continue
-            # Connection aggregation handled separately
+                if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
+                    continue
+                if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
+                    continue
+                # Scan mode: include any plan summaries that contain COLLSCAN
+                if args.scan and (entry['plan'] is None or "COLLSCAN" not in str(entry['plan'])):
+                    continue
+                if args.slow and (entry['ms'] is None or entry['ms'] < 100):
+                    continue
+                if args.namespace and args.namespace != entry['namespace']:
+                    continue
+                if entry['ms'] is None:
+                    continue
+                # Connection aggregation handled separately
 
-            key = (entry['operation'], entry['plan'], entry['namespace'], str(entry['query']))
-            results[key]['ms_list'].append(entry['ms'])
-            results[key]['count'] += 1
-            results[key]['plan'] = entry['plan']
-            results[key]['namespace'] = entry['namespace']
-            results[key]['operation'] = entry['operation']
-            results[key]['app_name'] = entry['app_name']
-            results[key]['keys_examined'] += entry['keys_examined']
-            results[key]['docs_examined'] += entry['docs_examined']
-            results[key]['nreturned'] += entry['nreturned']
-            results[key]['remote_ip'] = entry['remote_ip']
-            if entry.get('query_shape') and not results[key]['query_shape']:
-                results[key]['query_shape'] = entry['query_shape']
+                key = (entry['operation'], entry['plan'], entry['namespace'], str(entry['query']))
+                results[key]['ms_list'].append(entry['ms'])
+                results[key]['count'] += 1
+                results[key]['plan'] = entry['plan']
+                results[key]['namespace'] = entry['namespace']
+                results[key]['operation'] = entry['operation']
+                results[key]['app_name'] = entry['app_name']
+                results[key]['keys_examined'] += entry['keys_examined']
+                results[key]['docs_examined'] += entry['docs_examined']
+                results[key]['nreturned'] += entry['nreturned']
+                results[key]['remote_ip'] = entry['remote_ip']
+                if entry.get('query_shape') and not results[key]['query_shape']:
+                    results[key]['query_shape'] = entry['query_shape']
 
-            if args.filter:
-                log_lines.append(entry['line'])
+                if args.filter:
+                    log_lines.append(entry['line'])
+    except Exception as e:
+        print(f"Error reading file '{file_path}': {e}")
+        return {}, []
 
     return results, log_lines
 
 
 def process_connections(file_path, args):
     """Aggregate connection-accepted events by remote IP and app name."""
+    if not _validate_logfile(file_path):
+        return []
+    
     from collections import Counter
     counts = Counter()
-    with open(file_path, 'r') as f:
-        for line in f:
-            if args.filter and not any(m.lower() in line.lower() for m in args.filter):
-                continue
-            entry = parse_log_line(line)
-            if not entry:
-                continue
-            # Date filtering if present
-            if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
-                continue
-            if entry.get('operation') != 'Connection':
-                continue
-            ip = entry.get('remote_ip') or 'Unknown'
-            app = entry.get('app_name') or ''
-            counts[(ip, app)] += 1
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if args.filter and not any(m.lower() in line.lower() for m in args.filter):
+                    continue
+                entry = parse_log_line(line)
+                if not entry:
+                    continue
+                # Date filtering if present
+                if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
+                    continue
+                if entry.get('operation') != 'Connection':
+                    continue
+                ip = entry.get('remote_ip') or 'Unknown'
+                app = entry.get('app_name') or ''
+                counts[(ip, app)] += 1
+    except Exception as e:
+        print(f"Error reading file '{file_path}': {e}")
+        return []
     # Prepare rows sorted by count desc
     rows = [ (ip, app, cnt) for (ip, app), cnt in counts.most_common() ]
     return rows
@@ -277,43 +321,50 @@ def process_queries(logfile_path, args):
     Process distinct queries: Extract query shapes, count executions,
     and track source information (app name or IP) for top 10 queries.
     """
+    if not _validate_logfile(logfile_path):
+        return []
+    
     query_stats = defaultdict(lambda: {'count': 0, 'sources': set()})
     
-    with open(logfile_path, 'r') as f:
-        for line in f:
-            try:
-                entry = parse_log_line(line)
-                if not entry:
+    try:
+        with open(logfile_path, 'r') as f:
+            for line in f:
+                try:
+                    entry = parse_log_line(line)
+                    if not entry:
+                        continue
+                    
+                    if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
+                        continue
+                    if args.namespace and args.namespace != entry['namespace']:
+                        continue
+                    if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
+                        continue
+                    
+                    # Get query shape - prioritize existing shape, then derive from command
+                    query_shape = entry.get('query_shape', '')
+                    if not query_shape and entry.get('query'):
+                        # Simple fallback - use operation type
+                        query_shape = entry.get('operation', 'unknown')
+                    
+                    if not query_shape:
+                        continue
+                    
+                    # Determine source (app name or IP)
+                    source = entry.get('app_name', '').strip()
+                    if not source:
+                        source = entry.get('remote_ip', '').strip()
+                    if not source:
+                        source = 'Unknown'
+                    
+                    query_stats[query_shape]['count'] += 1
+                    query_stats[query_shape]['sources'].add(source)
+                    
+                except Exception:
                     continue
-                
-                if not is_within_date(entry['timestamp'], args.start_date, args.end_date):
-                    continue
-                if args.namespace and args.namespace != entry['namespace']:
-                    continue
-                if args.min_ms is not None and (entry['ms'] is None or entry['ms'] < args.min_ms):
-                    continue
-                
-                # Get query shape - prioritize existing shape, then derive from command
-                query_shape = entry.get('query_shape', '')
-                if not query_shape and entry.get('query'):
-                    # Simple fallback - use operation type
-                    query_shape = entry.get('operation', 'unknown')
-                
-                if not query_shape:
-                    continue
-                
-                # Determine source (app name or IP)
-                source = entry.get('app_name', '').strip()
-                if not source:
-                    source = entry.get('remote_ip', '').strip()
-                if not source:
-                    source = 'Unknown'
-                
-                query_stats[query_shape]['count'] += 1
-                query_stats[query_shape]['sources'].add(source)
-                
-            except Exception:
-                continue
+    except Exception as e:
+        print(f"Error reading file '{logfile_path}': {e}")
+        return []
     
     # Convert to list and sort by count (top 10)
     result = []
@@ -426,20 +477,27 @@ def main():
                 parser.print_help()
                 print("\nError: logfile is required for --connections mode.")
                 sys.exit(2)
-            # parse dates if provided
-            results = process_connections(args.logfile, args)
-            if results:
-                print("\nConnections:")
-                # Truncate app name unless verbose
-                if not args.verbose:
-                    display_rows = []
-                    for ip, app, cnt in results:
-                        display_rows.append([ip, _truncate(app, TRUNC_APP_LEN, verbose=False), cnt])
+            try:
+                # parse dates if provided
+                results = process_connections(args.logfile, args)
+                if results:
+                    print("\nConnections:")
+                    # Truncate app name unless verbose
+                    if not args.verbose:
+                        display_rows = []
+                        for ip, app, cnt in results:
+                            display_rows.append([ip, _truncate(app, TRUNC_APP_LEN, verbose=False), cnt])
+                    else:
+                        display_rows = results
+                    print(tabulate(display_rows, headers=["Remote IP", "App Name", "Count"], tablefmt="pretty"))
                 else:
-                    display_rows = results
-                print(tabulate(display_rows, headers=["Remote IP", "App Name", "Count"], tablefmt="pretty"))
-            else:
-                print("No connections found in the provided timeframe.")
+                    print("No connections found in the provided timeframe.")
+            except KeyboardInterrupt:
+                print("\nOperation cancelled by user.")
+                sys.exit(1)
+            except Exception as e:
+                print(f"Error processing connections: {e}")
+                sys.exit(1)
             sys.exit(0)
 
         # Query mode - show top 10 distinct queries
@@ -448,12 +506,19 @@ def main():
                 parser.print_help()
                 print("\nError: logfile is required for --query mode.")
                 sys.exit(2)
-            results = process_queries(args.logfile, args)
-            if results:
-                print("\nTop 10 Distinct Queries:")
-                print(tabulate(results, headers=["Query Shape", "Count", "Sources"], tablefmt="pretty"))
-            else:
-                print("No queries found in the provided timeframe.")
+            try:
+                results = process_queries(args.logfile, args)
+                if results:
+                    print("\nTop 10 Distinct Queries:")
+                    print(tabulate(results, headers=["Query Shape", "Count", "Sources"], tablefmt="pretty"))
+                else:
+                    print("No queries found in the provided timeframe.")
+            except KeyboardInterrupt:
+                print("\nOperation cancelled by user.")
+                sys.exit(1)
+            except Exception as e:
+                print(f"Error processing queries: {e}")
+                sys.exit(1)
             sys.exit(0)
 
         # Error mode

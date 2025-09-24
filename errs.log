@@ -1,0 +1,3 @@
+{"t": {"$date": "2025-09-16T10:00:00Z"}, "s": "I", "c": "NETWORK", "id": 1, "msg": "Listening on 127.0.0.1"}
+{"t": {"$date": "2025-09-16T10:00:01Z"}, "s": "E", "c": "QUERY", "id": 2, "msg": "Query failed due to some very long detailed explanation that should probably be truncated at some point for display because it exceeds the limit"}
+{"t": {"$date": "2025-09-16T10:00:02Z"}, "s": "F", "c": "REPL", "id": 3, "msg": "Fatal replication error: cannot continue startup sequence"}
