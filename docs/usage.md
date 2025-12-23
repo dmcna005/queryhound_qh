@@ -3,7 +3,7 @@
 QueryHound operates on MongoDB JSON structured logs.
 
 ```bash
-qh <logfile> [options]
+qh [logfile | -] [options]
 ```
 
 ## Options
@@ -23,6 +23,27 @@ qh <logfile> [options]
 - `-q, --query` — Show top 10 distinct queries with shape, count, and source
 - `--verbose` — Disable truncation (Plan / App Name / Query Shape / Error Message)
 - `-v, --version` — Show version and exit
+
+## Stream Input (stdin)
+
+QueryHound can read from standard input. This is useful for piping logs from other commands or live streams.
+
+- Use `-` as the logfile to explicitly read from stdin.
+- If no logfile is provided and data is piped, QueryHound automatically reads from stdin.
+- Works with all modes: `--slow`, `--scan`, `--connections`, `--error`, `--query`.
+
+Examples:
+
+```bash
+# Analyze slow queries from a live stream
+tail -f /var/log/mongodb/mongod.log | qh - --slow
+
+# Query analysis on compressed logs
+zcat mongo.log.gz | qh --query
+
+# Show only errors from systemd journal JSON
+journalctl -u mongod -o json | qh --error
+```
 
 ## Truncation Behavior
 
