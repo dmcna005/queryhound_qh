@@ -1,6 +1,37 @@
 # Release Notes
 
-## Version 0.7.2 (Latest)
+## Version 0.7.3 (Latest)
+
+**Release Date:** December 23, 2025
+
+### New Features
+
+- **Stream Input Support (stdin)**: You can now pipe MongoDB JSON logs directly into QueryHound without specifying a file.
+  - Accepts `-` as the logfile to read from standard input.
+  - If no logfile is provided and data is piped, QueryHound automatically reads from stdin.
+  - Works across all modes: `--slow`, `--scan`, `--connections`, `--error`, and `--query`.
+
+### Examples
+
+```bash
+# Pipe a live stream and analyze slow queries
+tail -f /var/log/mongodb/mongod.log | qh - --slow
+
+# Pipe compressed logs to query analysis
+zcat mongo.log.gz | qh --query
+
+# Pipe systemd journal JSON logs and show only errors
+journalctl -u mongod -o json | qh --error
+```
+
+### Notes
+
+- Special logfile `-` is always considered valid input.
+- When piping data, you can omit the logfile entirely (stdin is auto-detected).
+
+---
+
+## Version 0.7.2
 
 **Release Date:** September 24, 2025
 

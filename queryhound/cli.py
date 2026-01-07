@@ -29,7 +29,12 @@ def _truncate(text, max_len, verbose=False):
 
 
 def _validate_logfile(logfile_path):
-    """Validate that the log file exists and is readable."""
+    """Validate that the log file exists and is readable.
+
+    Special case: '-' means read from stdin and is always considered valid.
+    """
+    if logfile_path == '-':
+        return True
     if not logfile_path:
         print("Error: No logfile specified.")
         return False
@@ -300,8 +305,9 @@ def process_log(file_path, args):
     log_lines = []
 
     try:
-        with open(file_path, 'r') as f:
-            for line in f:
+        stream = sys.stdin if file_path == '-' else open(file_path, 'r')
+        try:
+            for line in stream:
                 if args.filter and not any(m.lower() in line.lower() for m in args.filter):
                     continue
 
@@ -340,6 +346,9 @@ def process_log(file_path, args):
 
                 if args.filter:
                     log_lines.append(entry['line'])
+        finally:
+            if stream is not sys.stdin:
+                stream.close()
     except Exception as e:
         print(f"Error reading file '{file_path}': {e}")
         return {}, []
@@ -355,8 +364,9 @@ def process_connections(file_path, args):
     from collections import Counter
     counts = Counter()
     try:
-        with open(file_path, 'r') as f:
-            for line in f:
+        stream = sys.stdin if file_path == '-' else open(file_path, 'r')
+        try:
+            for line in stream:
                 if args.filter and not any(m.lower() in line.lower() for m in args.filter):
                     continue
                 entry = parse_log_line(line)
@@ -370,6 +380,9 @@ def process_connections(file_path, args):
                 ip = entry.get('remote_ip') or 'Unknown'
                 app = entry.get('app_name') or ''
                 counts[(ip, app)] += 1
+        finally:
+            if stream is not sys.stdin:
+                stream.close()
     except Exception as e:
         print(f"Error reading file '{file_path}': {e}")
         return []
@@ -390,8 +403,9 @@ def process_queries(logfile_path, args):
     query_stats = defaultdict(lambda: {'count': 0, 'sources': set()})
     
     try:
-        with open(logfile_path, 'r') as f:
-            for line in f:
+        stream = sys.stdin if logfile_path == '-' else open(logfile_path, 'r')
+        try:
+            for line in stream:
                 try:
                     # Parse raw JSON to check for COMMAND entries
                     raw_entry = json.loads(line)
@@ -438,6 +452,9 @@ def process_queries(logfile_path, args):
                     
                 except Exception:
                     continue
+        finally:
+            if stream is not sys.stdin:
+                stream.close()
     except Exception as e:
         print(f"Error reading file '{logfile_path}': {e}")
         return []
@@ -523,7 +540,7 @@ def main():
     # Ensure PATH includes user scripts dir so invoking `qh` after install works without manual edits.
     _ensure_user_path_updated()
     parser = argparse.ArgumentParser(description="QueryHound - MongoDB Log Filter Tool")
-    parser.add_argument("logfile", nargs='?', help="Path to MongoDB JSON log file")
+    parser.add_argument("logfile", nargs='?', help="Path to MongoDB JSON log file, or '-' to read from stdin")
     parser.add_argument("--scan", action="store_true", help="Only show COLLSCAN queries")
     parser.add_argument("--slow", action="store_true", help="Only show slow queries (ms >= 100)")
     parser.add_argument("--start-date", type=str, help="Start date (ISO 8601 or 'YYYY-MM-DD')")
@@ -542,6 +559,10 @@ def main():
 
     args = parser.parse_args()
 
+    # If no logfile provided and stdin is being piped, default to '-'
+    if not args.logfile and not sys.stdin.isatty():
+        args.logfile = '-'
+
     try:
         if args.version:
             print(f"queryhound version {__version__}")
@@ -551,7 +572,7 @@ def main():
         if args.connections:
             if not args.logfile:
                 parser.print_help()
-                print("\nError: logfile is required for --connections mode.")
+                print("\nError: logfile or stdin is required for --connections mode.")
                 sys.exit(2)
             try:
                 # parse dates if provided
@@ -580,7 +601,7 @@ def main():
         if args.query:
             if not args.logfile:
                 parser.print_help()
-                print("\nError: logfile is required for --query mode.")
+                print("\nError: logfile or stdin is required for --query mode.")
                 sys.exit(2)
             try:
                 results = process_queries(args.logfile, args)
@@ -601,13 +622,14 @@ def main():
         if args.error:
             if not args.logfile:
                 parser.print_help()
-                print("\nError: logfile is required for --error mode.")
+                print("\nError: logfile or stdin is required for --error mode.")
                 sys.exit(2)
             # Process errors
             rows = []
             try:
-                with open(args.logfile, 'r') as f:
-                    for line in f:
+                stream = sys.stdin if args.logfile == '-' else open(args.logfile, 'r')
+                try:
+                    for line in stream:
                         try:
                             entry = json.loads(line)
                         except Exception:
@@ -627,6 +649,9 @@ def main():
                             msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
                         sev_disp = 'Error' if sev=='E' else 'Fatal'
                         rows.append([ts_disp, sev_disp, comp, _id, msg])
+                finally:
+                    if stream is not sys.stdin:
+                        stream.close()
                 if rows:
                     print("\nErrors:")
                     print(tabulate(rows, headers=["Timestamp","Severity","Component","ID","Message"], tablefmt="pretty"))
@@ -639,7 +664,7 @@ def main():
 
         if not args.logfile:
             parser.print_help()
-            print("\nError: logfile is required unless --version is used.")
+            print("\nError: logfile or stdin is required unless --version is used.")
             sys.exit(2)
         args.start_date = parse_date(args.start_date) if args.start_date else None
         args.end_date = parse_date(args.end_date) if args.end_date else None
