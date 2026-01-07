@@ -109,3 +109,25 @@ qh mongodb.log --query --verbose
 ```bash
 qh mongodb.log --query --namespace myapp.users
 ```
+
+## 16) Streaming input via pipes (stdin)
+
+QueryHound can read logs from standard input. Use `-` explicitly or rely on auto-detection when piping.
+
+Explicit stdin:
+
+```bash
+tail -f /var/log/mongodb/mongod.log | qh - --slow
+```
+
+Auto-detect piped input:
+
+```bash
+zcat mongo.log.gz | qh --error
+```
+
+Works with all modes, for example query analysis from a pipeline:
+
+```bash
+cat mongo.json | qh --query
+```
