@@ -676,6 +676,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#16-streaming-input-via-pipes-stdin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16) Streaming input via pipes (stdin)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -929,6 +940,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#16-streaming-input-via-pipes-stdin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16) Streaming input via pipes (stdin)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1024,6 +1046,20 @@
 
 <h2 id="15-queries-for-specific-namespace">15) Queries for specific namespace<a class="headerlink" href="#15-queries-for-specific-namespace" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>qh<span class="w"> </span>mongodb.log<span class="w"> </span>--query<span class="w"> </span>--namespace<span class="w"> </span>myapp.users
+</code></pre></div>
+
+<h2 id="16-streaming-input-via-pipes-stdin">16) Streaming input via pipes (stdin)<a class="headerlink" href="#16-streaming-input-via-pipes-stdin" title="Permanent link">&para;</a></h2>
+<p>QueryHound can read logs from standard input. Use <code>-</code> explicitly or rely on auto-detection when piping.</p>
+<p>Explicit stdin:</p>
+<div class="codehilite"><pre><span></span><code>tail<span class="w"> </span>-f<span class="w"> </span>/var/log/mongodb/mongod.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>qh<span class="w"> </span>-<span class="w"> </span>--slow
+</code></pre></div>
+
+<p>Auto-detect piped input:</p>
+<div class="codehilite"><pre><span></span><code>zcat<span class="w"> </span>mongo.log.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>qh<span class="w"> </span>--error
+</code></pre></div>
+
+<p>Works with all modes, for example query analysis from a pipeline:</p>
+<div class="codehilite"><pre><span></span><code>cat<span class="w"> </span>mongo.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>qh<span class="w"> </span>--query
 </code></pre></div>
 
 
