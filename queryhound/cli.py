@@ -552,7 +552,7 @@ def main():
     parser.add_argument("--output-csv", type=str, help="Write output to CSV")
     parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
     parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
-    parser.add_argument("--error", action="store_true", help="Show only error / fatal log lines (severity E/F)")
+    parser.add_argument("--error", "--errors", action="store_true", help="Show only error / fatal log lines (severity E/F)")
     parser.add_argument("-q", "--query", action="store_true", help="Show top 10 distinct queries with shape, count, and source")
     parser.add_argument("--verbose", action="store_true", help="Show full field values without truncation")
     parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
@@ -644,17 +644,48 @@ def main():
                             ts_disp = ts_raw or '-'
                         comp = entry.get('c','')
                         _id = entry.get('id','')
+                        ctx = entry.get('ctx','')
+                        attr = entry.get('attr') or {}
+                        # Derive additional fields from attr when present
+                        ns = ''
+                        app_name = ''
+                        remote = ''
+                        try:
+                            if isinstance(attr, dict):
+                                ns = attr.get('ns') or ''
+                                app_name = (
+                                    attr.get('appName')
+                                    or attr.get('applicationName')
+                                    or (attr.get('client',{}).get('application',{}).get('name') if isinstance(attr.get('client'), dict) else '')
+                                    or ''
+                                )
+                                remote = attr.get('remote') or ''
+                        except Exception:
+                            pass
+                        # Clean app name similar to main flow
+                        app_name = re.sub(r" v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", "", app_name)
+                        app_name = re.sub(r"\s*\(.*\)", "", app_name)
+
                         msg = entry.get('msg','')
                         if not args.verbose:
                             msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
+
+                        # Compact attributes string
+                        try:
+                            attr_str = json.dumps(attr, default=str)
+                        except Exception:
+                            attr_str = str(attr) if attr is not None else ''
+                        if not args.verbose:
+                            attr_str = _truncate(attr_str, TRUNC_ERRMSG_LEN, verbose=False)
+
                         sev_disp = 'Error' if sev=='E' else 'Fatal'
-                        rows.append([ts_disp, sev_disp, comp, _id, msg])
+                        rows.append([ts_disp, sev_disp, comp, _id, ctx, ns, app_name, remote, msg, attr_str])
                 finally:
                     if stream is not sys.stdin:
                         stream.close()
                 if rows:
                     print("\nErrors:")
-                    print(tabulate(rows, headers=["Timestamp","Severity","Component","ID","Message"], tablefmt="pretty"))
+                    print(tabulate(rows, headers=["Timestamp","Severity","Component","ID","Context","Namespace","App Name","Remote","Message","Attributes"], tablefmt="pretty"))
                 else:
                     print("No error/fatal entries found.")
             except Exception as e:

@@ -97,15 +97,19 @@ qh mongodb.log --filter "ReplicaSetMonitor" --error
 ```
 
 ## 14) Top 10 distinct queries
+
 ```bash
 qh mongodb.log --query
 ```
+
 Show with full details (no truncation):
+
 ```bash
 qh mongodb.log --query --verbose
 ```
 
 ## 15) Queries for specific namespace
+
 ```bash
 qh mongodb.log --query --namespace myapp.users
 ```
