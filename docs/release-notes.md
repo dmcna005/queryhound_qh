@@ -6,9 +6,9 @@
 
 ### New Features
 
-  - Accepts `-` as the logfile to read from standard input.
-  - If no logfile is provided and data is piped, QueryHound automatically reads from stdin.
-  - Works across all modes: `--slow`, `--scan`, `--connections`, `--error`, and `--query`.
+- Accepts `-` as the logfile to read from standard input.
+- If no logfile is provided and data is piped, QueryHound automatically reads from stdin.
+- Works across all modes: `--slow`, `--scan`, `--connections`, `--error`, and `--query`.
 
 ### Examples
 
@@ -25,12 +25,11 @@ journalctl -u mongod -o json | qh --error
 
 ### Notes
 
-
-
 ## Version 0.7.4 (Latest)
 
 **Release Date:** January 12, 2026
 **Release Date:** September 24, 2025
+
 ### Enhancements
 
 - Expanded `--error` output with richer columns matching operational dashboards:
@@ -38,19 +37,26 @@ journalctl -u mongod -o json | qh --error
 - Added `--errors` as an alias for `--error`
 - Documentation updates reflecting the new error output
 - Rebuilt site to include updated Usage and Examples
+
 ### Bug Fixes
+
 ### Examples
 
 ```bash
 journalctl -u mongod -o json | qh --errors --verbose
 ```
+
 - **Enhanced Query Analysis (`--query/-q`)**: Major improvements to query shape extraction
+
 ## Version 0.7.3
-  - Now correctly filters for COMMAND entries only (`c: "COMMAND"`)
-**Release Date:** September 24, 2025
-  - Properly extracts query shapes from `attr.command.aggregate` and `attr.command.find`
+
+- Now correctly filters for COMMAND entries only (`c: "COMMAND"`)
+  **Release Date:** September 24, 2025
+- Properly extracts query shapes from `attr.command.aggregate` and `attr.command.find`
+
 ### Enhancements
-  - Shows detailed filter field names (e.g., `find:filter:status,age:sort:created`)
+
+- Shows detailed filter field names (e.g., `find:filter:status,age:sort:created`)
 - Added `stdin` support: read from `-` or auto-detect piped input when no logfile is provided
 - Documentation updates:
   - Usage: new “Stream Input (stdin)” section
@@ -64,7 +70,9 @@ journalctl -u mongod -o json | qh --errors --verbose
 
 - Added `_extract_command_query_shape()` function for proper MongoDB command parsing
 - Enhanced filtering to focus on aggregate and find operations specifically
+
 ### Bug Fixes
+
 - Better pipeline stage extraction for aggregation queries
 
 ### Examples
