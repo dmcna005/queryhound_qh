@@ -70,7 +70,13 @@ Purpose: cluster similar logical operations without dumping full query bodies.
 
 ## Error Mode
 
-`--error` filters lines whose severity field `s` is `E` (Error) or `F` (Fatal) and prints a table of: Timestamp, Severity, Component, ID, Message (truncated unless `--verbose`).
+`--error` (alias: `--errors`) filters lines whose severity field `s` is `E` (Error) or `F` (Fatal) and prints a table with rich columns:
+
+- Timestamp, Severity, Component, ID
+- Context, Namespace, App Name, Remote
+- Message, Attributes (compact JSON of the `attr` object)
+
+Use `--verbose` to disable truncation of long Message/Attributes values.
 
 ## Query Mode
 
