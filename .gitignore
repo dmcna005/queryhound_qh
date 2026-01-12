@@ -16,4 +16,5 @@ venv/
 
 # IDE
 .vscode/
-.idea/
+.idea/# Generated documentation
+site/
