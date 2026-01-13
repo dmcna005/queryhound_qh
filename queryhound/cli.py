@@ -494,16 +494,24 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
             display_app = data['app_name']
             display_shape = data.get('query_shape') or ''
 
-        row = [operation, display_plan, display_shape]
+        # Calculate statistics
+        avg_ms = round(mean(ms_list), 2)
+        max_ms = round(max(ms_list), 2)
+        total_ms = round(sum(ms_list), 2)
+        collscan_indicator = 'COLLSCAN' if plan and 'COLLSCAN' in str(plan) else '-'
+
+        row = [operation, display_plan, display_shape, namespace]
         if pvalue and pvalue.lower() == 'p50':
             row.append(round(median(ms_list), 2))
 
-        avg_ms = round(mean(ms_list), 2)
-        row.append(avg_ms)
         row.extend([
+            avg_ms,
+            max_ms,
+            total_ms,
             data['keys_examined'],
             data['docs_examined'],
-            data['nreturned']
+            data['nreturned'],
+            collscan_indicator
         ])
 
         if include_pstats or (pvalue and pvalue.lower() in ['p75', 'p90', 'p99']):
@@ -520,7 +528,6 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
                 row.append(q[98] if len(q) > 98 else '-')
 
         row.extend([
-            data['operation'],
             count,
             display_app
         ])
@@ -718,10 +725,10 @@ def main():
                 truncate=(not args.verbose and (args.slow or args.scan))
             )
             if table:
-                headers = ["Operation", "Plan", "Query Shape"]
+                headers = ["Operation", "Plan", "Query Shape", "Namespace"]
                 if args.pvalue and args.pvalue.lower() == 'p50':
                     headers.append("P50")
-                headers += ["Avg ms", "Keys Examined", "Docs Examined", "NReturned"]
+                headers += ["Avg ms", "Max ms", "Total ms", "Keys Examined", "Docs Examined", "NReturned", "COLLSCAN"]
                 if args.pstats or (args.pvalue and args.pvalue.lower() in ['p75', 'p90', 'p99']):
                     if args.pstats or (args.pvalue and args.pvalue.lower() == 'p75'):
                         headers.append("P75")
@@ -729,7 +736,7 @@ def main():
                         headers.append("P90")
                     if args.pstats or (args.pvalue and args.pvalue.lower() == 'p99'):
                         headers.append("P99")
-                headers += ["Operation Type", "Count", "App Name"]
+                headers += ["Count", "App Name"]
 
                 print("\nSummary Table:")
                 print(tabulate(table, headers=headers, tablefmt="pretty"))
