@@ -550,7 +550,7 @@ def main():
     parser.add_argument("--pstats", action="store_true", help="Include P75, P90, P99 stats")
     parser.add_argument("--pvalue", type=str, choices=['P50', 'P75', 'P90', 'P99'], help="Specify a specific p-stat to include")
     parser.add_argument("--output-csv", type=str, help="Write output to CSV")
-    parser.add_argument("--filter", nargs='*', type=str, help="Search for lines containing any of the specified strings")
+    parser.add_argument("--filter", nargs='+', type=str, help="Search for lines containing any of the specified strings (words can be provided with or without quotes)")
     parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
     parser.add_argument("--error", "--errors", action="store_true", help="Show only error / fatal log lines (severity E/F)")
     parser.add_argument("-q", "--query", action="store_true", help="Show top 10 distinct queries with shape, count, and source")
