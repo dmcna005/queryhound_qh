@@ -243,6 +243,7 @@ def parse_log_line(line):
         keys_examined = attr.get("keysExamined", 0)
         docs_examined = attr.get("docsExamined", 0)
         nreturned = attr.get("nreturned", 0)
+        reslen = attr.get("reslen", 0)
         remote_ip = attr.get("remote", "")
         if remote_ip:
             remote_ip = remote_ip.split(":")[0]
@@ -278,6 +279,7 @@ def parse_log_line(line):
             'keys_examined': keys_examined,
             'docs_examined': docs_examined,
             'nreturned': nreturned,
+            'reslen': reslen,
             'line': line.strip(),
             'remote_ip': remote_ip,
             'query_shape': query_shape
@@ -301,7 +303,7 @@ def process_log(file_path, args):
     if not _validate_logfile(file_path):
         return {}, []
     
-    results = defaultdict(lambda: {'ms_list': [], 'count': 0, 'plan': '', 'namespace': '', 'operation': '', 'app_name': '', 'keys_examined': 0, 'docs_examined': 0, 'nreturned': 0, 'remote_ip': '', 'query_shape': ''})
+    results = defaultdict(lambda: {'ms_list': [], 'count': 0, 'plan': '', 'namespace': '', 'operation': '', 'app_name': '', 'keys_examined': 0, 'docs_examined': 0, 'nreturned': 0, 'reslen_total': 0, 'remote_ip': '', 'query_shape': ''})
     log_lines = []
 
     try:
@@ -340,6 +342,7 @@ def process_log(file_path, args):
                 results[key]['keys_examined'] += entry['keys_examined']
                 results[key]['docs_examined'] += entry['docs_examined']
                 results[key]['nreturned'] += entry['nreturned']
+                results[key]['reslen_total'] += entry['reslen']
                 results[key]['remote_ip'] = entry['remote_ip']
                 if entry.get('query_shape') and not results[key]['query_shape']:
                     results[key]['query_shape'] = entry['query_shape']
@@ -499,6 +502,20 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
         max_ms = round(max(ms_list), 2)
         total_ms = round(sum(ms_list), 2)
         collscan_indicator = 'COLLSCAN' if plan and 'COLLSCAN' in str(plan) else '-'
+        # Derive index used from plan summary when available
+        index_used = '-'
+        if plan:
+            s = str(plan)
+            if 'COLLSCAN' in s:
+                index_used = '-'
+            else:
+                m = re.search(r"(IXSCAN|IDHACK|COUNT_SCAN|DISTINCT_SCAN|TEXT).*?(\{.*?\})", s)
+                if m and m.group(2):
+                    index_used = m.group(2)
+                else:
+                    m2 = re.search(r"(IXSCAN|IDHACK|COUNT_SCAN|DISTINCT_SCAN|TEXT)", s)
+                    if m2:
+                        index_used = m2.group(1)
 
         row = [operation, display_plan, display_shape, namespace]
         if pvalue and pvalue.lower() == 'p50':
@@ -511,6 +528,8 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
             data['keys_examined'],
             data['docs_examined'],
             data['nreturned'],
+            data['reslen_total'],
+            index_used,
             collscan_indicator
         ])
 
@@ -728,7 +747,7 @@ def main():
                 headers = ["Operation", "Plan", "Query Shape", "Namespace"]
                 if args.pvalue and args.pvalue.lower() == 'p50':
                     headers.append("P50")
-                headers += ["Avg ms", "Max ms", "Total ms", "Keys Examined", "Docs Examined", "NReturned", "COLLSCAN"]
+                headers += ["Avg ms", "Max ms", "Total ms", "Keys Examined", "Docs Examined", "NReturned", "Total Reslen", "Index Used", "COLLSCAN"]
                 if args.pstats or (args.pvalue and args.pvalue.lower() in ['p75', 'p90', 'p99']):
                     if args.pstats or (args.pvalue and args.pvalue.lower() == 'p75'):
                         headers.append("P75")

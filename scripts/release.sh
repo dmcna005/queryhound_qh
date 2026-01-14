@@ -24,7 +24,7 @@ if [ "$CURRENT_BRANCH" != "main" ]; then
 fi
 
 # Get current version
-CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' queryhound/__init__.py)
+CURRENT_VERSION=$(grep "__version__" queryhound/__init__.py | cut -d\" -f2)
 echo -e "Current version: ${YELLOW}$CURRENT_VERSION${NC}"
 
 # Prompt for new version
