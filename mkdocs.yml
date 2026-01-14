@@ -6,7 +6,8 @@ repo_url: https://github.com/dmcna005/queryhound_qh
 theme:
   name: material
   features:
-    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
     - navigation.instant
     - search.highlight
     - search.suggest
