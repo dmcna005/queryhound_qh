@@ -437,6 +437,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#warnings-vs-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Warnings vs Errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#query-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -662,6 +673,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#warnings-vs-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Warnings vs Errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#query-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -722,7 +744,7 @@
 <h2 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>--scan</code> — Only show COLLSCAN queries (plan &amp; shape truncated by default)</li>
-<li><code>--slow</code> — Only show slow queries (ms &gt;= 100) (plan &amp; shape truncated by default)</li>
+<li><code>--slow [N]</code> — Only show slow queries (ms &gt;= N). If N is omitted, defaults to 100 (plan &amp; shape truncated by default)</li>
 <li><code>--start-date &lt;ISO&gt;</code> — Start date (ISO 8601 or YYYY-MM-DD)</li>
 <li><code>--end-date &lt;ISO&gt;</code> — End date (ISO 8601 or YYYY-MM-DD)</li>
 <li><code>--namespace &lt;db.collection&gt;</code> — Filter by namespace</li>
@@ -733,6 +755,7 @@
 <li><code>--filter &lt;str ...&gt;</code> — Show lines containing any provided strings (also prints matching raw lines)</li>
 <li><code>--connections</code> — Aggregate connection accepted events by Remote IP + App Name</li>
 <li><code>--error</code> — Show only Error / Fatal severity log lines (<code>s</code> in {E,F})</li>
+<li><code>--warn</code> — Show only Warning severity log lines (<code>s</code> == W)</li>
 <li><code>-q, --query</code> — Show top 10 distinct queries with shape, count, and source</li>
 <li><code>--verbose</code> — Disable truncation (Plan / App Name / Query Shape / Error Message)</li>
 <li><code>-v, --version</code> — Show version and exit</li>
@@ -743,6 +766,7 @@
 <li>Use <code>-</code> as the logfile to explicitly read from stdin.</li>
 <li>If no logfile is provided and data is piped, QueryHound automatically reads from stdin.</li>
 <li>Works with all modes: <code>--slow</code>, <code>--scan</code>, <code>--connections</code>, <code>--error</code>, <code>--query</code>.</li>
+<li>Also works with <code>--warn</code> to surface Warning severity events.</li>
 </ul>
 <p>Examples:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># Analyze slow queries from a live stream</span>
@@ -780,6 +804,36 @@ Truncated fields: Plan, App Name, Query Shape, Error Message. Use <code>--verbos
 <li>Message, Attributes (compact JSON of the <code>attr</code> object)</li>
 </ul>
 <p>Use <code>--verbose</code> to disable truncation of long Message/Attributes values.</p>
+<h2 id="warnings-vs-errors">Warnings vs Errors<a class="headerlink" href="#warnings-vs-errors" title="Permanent link">&para;</a></h2>
+<p>MongoDB structured logs include a severity field <code>s</code>:</p>
+<ul>
+<li><code>W</code> — Warning</li>
+<li><code>E</code> — Error</li>
+<li><code>F</code> — Fatal</li>
+</ul>
+<p>QueryHound provides dedicated flags to focus on these:</p>
+<ul>
+<li><code>--warn</code> shows only Warning (<code>W</code>) entries.</li>
+<li><code>--error</code> shows Error (<code>E</code>) and Fatal (<code>F</code>) entries.</li>
+<li>Combine <code>--error --warn</code> to include all W/E/F severities.</li>
+</ul>
+<p>Examples:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Show warnings such as re-auth attempts, timeouts, deprecations</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--warn
+
+<span class="c1"># Show only errors and fatals</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--error
+
+<span class="c1"># Include warnings together with errors/fatals</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--error<span class="w"> </span>--warn
+
+<span class="c1"># Focus on common operational warnings</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--warn<span class="w"> </span>--filter<span class="w"> </span><span class="s2">&quot;MaxTimeMSExpired|ClientDisconnect|deprecated&quot;</span>
+
+<span class="c1"># Pipe JSON logs and include warnings</span>
+journalctl<span class="w"> </span>-u<span class="w"> </span>mongod<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>qh<span class="w"> </span>--warn
+</code></pre></div>
+
 <h2 id="query-mode">Query Mode<a class="headerlink" href="#query-mode" title="Permanent link">&para;</a></h2>
 <p><code>--query</code> shows the top 10 most frequently executed distinct queries. For each query it displays:</p>
 <ul>
@@ -794,6 +848,7 @@ Truncated fields: Plan, App Name, Query Shape, Error Message. Use <code>--verbos
 <div class="codehilite"><pre><span></span><code>qh<span class="w"> </span>mongo.log<span class="w"> </span>--slow<span class="w"> </span>--pstats
 qh<span class="w"> </span>mongo.log<span class="w"> </span>--scan<span class="w"> </span>--pvalue<span class="w"> </span>P90
 qh<span class="w"> </span>mongo.log<span class="w"> </span>--slow<span class="w"> </span>--namespace<span class="w"> </span>sales.orders<span class="w"> </span>--min-ms<span class="w"> </span><span class="m">250</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--slow<span class="w"> </span><span class="m">250</span>
 qh<span class="w"> </span>mongo.log<span class="w"> </span>--slow<span class="w"> </span>--start-date<span class="w"> </span><span class="m">2025</span>-09-15<span class="w"> </span>--end-date<span class="w"> </span><span class="m">2025</span>-09-16<span class="w"> </span>--pvalue<span class="w"> </span>P50
 qh<span class="w"> </span>mongo.log<span class="w"> </span>--error<span class="w"> </span>--verbose
 qh<span class="w"> </span>mongo.log<span class="w"> </span>--query<span class="w"> </span>--namespace<span class="w"> </span>mydb.users

@@ -490,6 +490,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#how-do-i-only-see-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I only see warnings?
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -628,6 +639,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#how-do-i-only-see-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I only see warnings?
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -662,7 +684,9 @@
 <h2 id="will-output-csv-include-error-or-connection-tables">Will <code>--output-csv</code> include error or connection tables?<a class="headerlink" href="#will-output-csv-include-error-or-connection-tables" title="Permanent link">&para;</a></h2>
 <p>No, it only exports the slow / scan summary table.</p>
 <h2 id="how-do-i-only-see-fatal-issues">How do I only see fatal issues?<a class="headerlink" href="#how-do-i-only-see-fatal-issues" title="Permanent link">&para;</a></h2>
-<p>Use <code>--error</code> then filter the output (Fatal shows severity <code>F</code>).</p>
+<p>Use <code>--error</code> (it shows Error <code>E</code> and Fatal <code>F</code>). To focus only on fatals, filter the output by severity <code>F</code>.</p>
+<h2 id="how-do-i-only-see-warnings">How do I only see warnings?<a class="headerlink" href="#how-do-i-only-see-warnings" title="Permanent link">&para;</a></h2>
+<p>Use <code>--warn</code> to show Warning severity (<code>W</code>) entries. Combine <code>--error --warn</code> to include all W/E/F severities in one view.</p>
 
 
 

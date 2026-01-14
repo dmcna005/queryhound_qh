@@ -489,15 +489,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#version-074-latest" class="md-nav__link">
+  <a href="#version-080-latest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Version 0.7.4 (Latest)
+        Version 0.8.0 (Latest)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Version 0.7.4 (Latest)">
+    <nav class="md-nav" aria-label="Version 0.8.0 (Latest)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -839,15 +839,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#version-074-latest" class="md-nav__link">
+  <a href="#version-080-latest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Version 0.7.4 (Latest)
+        Version 0.8.0 (Latest)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Version 0.7.4 (Latest)">
+    <nav class="md-nav" aria-label="Version 0.8.0 (Latest)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1145,19 +1145,30 @@ journalctl<span class="w"> </span>-u<span class="w"> </span>mongod<span class="w
 </code></pre></div>
 
 <h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
-<h2 id="version-074-latest">Version 0.7.4 (Latest)<a class="headerlink" href="#version-074-latest" title="Permanent link">&para;</a></h2>
-<p><strong>Release Date:</strong> January 12, 2026</p>
+<h2 id="version-080-latest">Version 0.8.0 (Latest)<a class="headerlink" href="#version-080-latest" title="Permanent link">&para;</a></h2>
+<p><strong>Release Date:</strong> January 14, 2026</p>
 <h3 id="enhancements">Enhancements<a class="headerlink" href="#enhancements" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Expanded <code>--error</code> output with richer columns matching operational dashboards:</li>
 <li>Context, Namespace, App Name, Remote, plus compact <code>Attributes</code> JSON</li>
 <li>Added <code>--errors</code> as an alias for <code>--error</code></li>
+<li>Added <code>--warn</code> to surface Warning (<code>W</code>) severity entries; can be combined with <code>--error</code> to include all W/E/F</li>
+<li><code>--slow [N]</code> now accepts an optional threshold value. Using <code>--slow</code> defaults to 100ms; <code>--slow 250</code> sets 250ms.</li>
 <li>Documentation updates reflecting the new error output</li>
 <li>Rebuilt site to include updated Usage and Examples</li>
 </ul>
 <h3 id="bug-fixes">Bug Fixes<a class="headerlink" href="#bug-fixes" title="Permanent link">&para;</a></h3>
 <h3 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>journalctl<span class="w"> </span>-u<span class="w"> </span>mongod<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>qh<span class="w"> </span>--errors<span class="w"> </span>--verbose
+
+<span class="c1"># Show warnings</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--warn
+
+<span class="c1"># Combine warnings with errors/fatals</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--error<span class="w"> </span>--warn
+
+<span class="c1"># Slow threshold set to 250ms</span>
+qh<span class="w"> </span>mongo.log<span class="w"> </span>--slow<span class="w"> </span><span class="m">250</span>
 </code></pre></div>
 
 <ul>
