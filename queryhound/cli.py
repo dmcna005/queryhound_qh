@@ -324,7 +324,8 @@ def process_log(file_path, args):
                 # Scan mode: include any plan summaries that contain COLLSCAN
                 if args.scan and (entry['plan'] is None or "COLLSCAN" not in str(entry['plan'])):
                     continue
-                if args.slow and (entry['ms'] is None or entry['ms'] < 100):
+                # Slow mode threshold (supports --slow N)
+                if args.slow is not None and (entry['ms'] is None or entry['ms'] < args.slow):
                     continue
                 if args.namespace and args.namespace != entry['namespace']:
                     continue
@@ -555,6 +556,41 @@ def summarize_results(results, pvalue=None, include_pstats=False, verbose=False,
     return table
 
 
+def _parse_plain_error_line(line, allowed=("E","F"), verbose=False):
+    """Fallback parser for non-JSON MongoDB log lines in error mode.
+    Tries to match typical format: <ts> <sev> <component> [context] message.
+    Returns row fields or None if not an error/fatal line.
+    """
+    try:
+        m = re.match(r"^(?P<ts>\S+)\s+(?P<sev>[IWEF])\s+(?P<comp>\S+)\s+\[(?P<ctx>[^\]]+)\]\s+(?P<msg>.*)$", line.strip())
+        if not m:
+            return None
+        sev = m.group('sev')
+        if sev not in allowed:
+            return None
+        ts_disp = m.group('ts')
+        comp = m.group('comp')
+        ctx = m.group('ctx')
+        msg = m.group('msg')
+        # Extract optional fields from message
+        ns_match = re.search(r"\bns[:=]([^\s]+)", msg)
+        ns = ns_match.group(1) if ns_match else ''
+        remote_match = re.search(r"\bremote[:=]([^\s]+)", msg)
+        remote = remote_match.group(1) if remote_match else ''
+        app_name = ''
+        # Build compact attributes (key=value pairs)
+        kv_pairs = re.findall(r"(\w+)=([^\s]+)", msg)
+        attr_str = ' '.join([f"{k}={v}" for k, v in kv_pairs]) if kv_pairs else ''
+        if not verbose:
+            msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
+            if attr_str:
+                attr_str = _truncate(attr_str, TRUNC_ERRMSG_LEN, verbose=False)
+        sev_disp = 'Warning' if sev == 'W' else ('Error' if sev == 'E' else 'Fatal')
+        return [ts_disp, sev_disp, comp, '', ctx, ns, app_name, remote, msg, attr_str]
+    except Exception:
+        return None
+
+
 def write_csv(output_file, data, headers):
     with open(output_file, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -568,7 +604,7 @@ def main():
     parser = argparse.ArgumentParser(description="QueryHound - MongoDB Log Filter Tool")
     parser.add_argument("logfile", nargs='?', help="Path to MongoDB JSON log file, or '-' to read from stdin")
     parser.add_argument("--scan", action="store_true", help="Only show COLLSCAN queries")
-    parser.add_argument("--slow", action="store_true", help="Only show slow queries (ms >= 100)")
+    parser.add_argument("--slow", nargs='?', const=100, type=int, help="Only show slow queries (ms >= N). If N is omitted, defaults to 100")
     parser.add_argument("--start-date", type=str, help="Start date (ISO 8601 or 'YYYY-MM-DD')")
     parser.add_argument("--end-date", type=str, help="End date (ISO 8601 or 'YYYY-MM-DD')")
     parser.add_argument("--namespace", type=str, help="Filter by namespace (db.collection)")
@@ -579,6 +615,7 @@ def main():
     parser.add_argument("--filter", nargs='+', type=str, help="Search for lines containing any of the specified strings (words can be provided with or without quotes)")
     parser.add_argument("--connections", action="store_true", help="Displays connection counts grouped by IP and app name")
     parser.add_argument("--error", "--errors", action="store_true", help="Show only error / fatal log lines (severity E/F)")
+    parser.add_argument("--warn", action="store_true", help="Include warnings (severity W). Use alone to show warnings only, or with --error to include warnings with errors/fatals.")
     parser.add_argument("-q", "--query", action="store_true", help="Show top 10 distinct queries with shape, count, and source")
     parser.add_argument("--verbose", action="store_true", help="Show full field values without truncation")
     parser.add_argument("-v", "--version", action="store_true", help="Show version and exit")
@@ -644,11 +681,11 @@ def main():
                 sys.exit(1)
             sys.exit(0)
 
-        # Error mode
-        if args.error:
+        # Error/Warn mode
+        if args.error or args.warn:
             if not args.logfile:
                 parser.print_help()
-                print("\nError: logfile or stdin is required for --error mode.")
+                print("\nError: logfile or stdin is required for --error/--warn mode.")
                 sys.exit(2)
             # Process errors
             rows = []
@@ -656,64 +693,90 @@ def main():
                 stream = sys.stdin if args.logfile == '-' else open(args.logfile, 'r')
                 try:
                     for line in stream:
+                        # Try JSON first; fallback to plaintext parser
+                        entry = None
                         try:
                             entry = json.loads(line)
                         except Exception:
-                            continue
-                        sev = entry.get('s')
-                        if sev not in ('E','F'):
-                            continue
-                        ts_raw = entry.get('t',{}).get('$date')
-                        try:
-                            ts_disp = datetime.fromisoformat(ts_raw.replace('Z','+00:00')).isoformat() if ts_raw else '-'
-                        except Exception:
-                            ts_disp = ts_raw or '-'
-                        comp = entry.get('c','')
-                        _id = entry.get('id','')
-                        ctx = entry.get('ctx','')
-                        attr = entry.get('attr') or {}
-                        # Derive additional fields from attr when present
-                        ns = ''
-                        app_name = ''
-                        remote = ''
-                        try:
-                            if isinstance(attr, dict):
-                                ns = attr.get('ns') or ''
-                                app_name = (
-                                    attr.get('appName')
-                                    or attr.get('applicationName')
-                                    or (attr.get('client',{}).get('application',{}).get('name') if isinstance(attr.get('client'), dict) else '')
-                                    or ''
-                                )
-                                remote = attr.get('remote') or ''
-                        except Exception:
-                            pass
-                        # Clean app name similar to main flow
-                        app_name = re.sub(r" v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", "", app_name)
-                        app_name = re.sub(r"\s*\(.*\)", "", app_name)
+                            entry = None
+                        if entry and isinstance(entry, dict):
+                            sev = entry.get('s')
+                            # Determine allowed severities based on flags
+                            if args.error and args.warn:
+                                allowed = ('W','E','F')
+                            elif args.warn and not args.error:
+                                allowed = ('W',)
+                            else:
+                                allowed = ('E','F')
+                            if sev not in allowed:
+                                continue
+                            ts_raw = entry.get('t',{}).get('$date')
+                            try:
+                                ts_disp = datetime.fromisoformat(ts_raw.replace('Z','+00:00')).isoformat() if ts_raw else '-'
+                            except Exception:
+                                ts_disp = ts_raw or '-'
+                            comp = entry.get('c','')
+                            _id = entry.get('id','')
+                            ctx = entry.get('ctx','')
+                            attr = entry.get('attr') or {}
+                            # Derive additional fields from attr when present
+                            ns = ''
+                            app_name = ''
+                            remote = ''
+                            try:
+                                if isinstance(attr, dict):
+                                    ns = attr.get('ns') or ''
+                                    app_name = (
+                                        attr.get('appName')
+                                        or attr.get('applicationName')
+                                        or (attr.get('client',{}).get('application',{}).get('name') if isinstance(attr.get('client'), dict) else '')
+                                        or ''
+                                    )
+                                    remote = attr.get('remote') or ''
+                            except Exception:
+                                pass
+                            # Clean app name similar to main flow
+                            app_name = re.sub(r" v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", "", app_name)
+                            app_name = re.sub(r"\s*\(.*\)", "", app_name)
 
-                        msg = entry.get('msg','')
-                        if not args.verbose:
-                            msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
+                            msg = entry.get('msg','')
+                            if not args.verbose:
+                                msg = _truncate(msg, TRUNC_ERRMSG_LEN, verbose=False)
 
-                        # Compact attributes string
-                        try:
-                            attr_str = json.dumps(attr, default=str)
-                        except Exception:
-                            attr_str = str(attr) if attr is not None else ''
-                        if not args.verbose:
-                            attr_str = _truncate(attr_str, TRUNC_ERRMSG_LEN, verbose=False)
-
-                        sev_disp = 'Error' if sev=='E' else 'Fatal'
-                        rows.append([ts_disp, sev_disp, comp, _id, ctx, ns, app_name, remote, msg, attr_str])
+                            # Compact attributes string
+                            try:
+                                attr_str = json.dumps(attr, default=str)
+                            except Exception:
+                                attr_str = str(attr) if attr is not None else ''
+                            if not args.verbose:
+                                attr_str = _truncate(attr_str, TRUNC_ERRMSG_LEN, verbose=False)
+                            sev_disp = 'Warning' if sev=='W' else ('Error' if sev=='E' else 'Fatal')
+                            rows.append([ts_disp, sev_disp, comp, _id, ctx, ns, app_name, remote, msg, attr_str])
+                        else:
+                            # Fallback for non-JSON log lines
+                            if args.error and args.warn:
+                                allowed = ('W','E','F')
+                            elif args.warn and not args.error:
+                                allowed = ('W',)
+                            else:
+                                allowed = ('E','F')
+                            parsed = _parse_plain_error_line(line, allowed=allowed, verbose=args.verbose)
+                            if parsed:
+                                rows.append(parsed)
                 finally:
                     if stream is not sys.stdin:
                         stream.close()
                 if rows:
-                    print("\nErrors:")
+                    title = "Errors/Warnings" if args.warn and args.error else ("Warnings" if args.warn and not args.error else "Errors")
+                    print(f"\n{title}:")
                     print(tabulate(rows, headers=["Timestamp","Severity","Component","ID","Context","Namespace","App Name","Remote","Message","Attributes"], tablefmt="pretty"))
                 else:
-                    print("No error/fatal entries found.")
+                    if args.warn and not args.error:
+                        print("No warning entries found.")
+                    elif args.warn and args.error:
+                        print("No error/warning/fatal entries found.")
+                    else:
+                        print("No error/fatal entries found.")
             except Exception as e:
                 print(f"Error processing error log lines: {e}")
                 sys.exit(1)
@@ -730,6 +793,11 @@ def main():
         sys.exit(1)
 
     try:
+        # If --slow provided (with or without a value), set effective minimum threshold
+        # Precedence: --slow overrides --min-ms when present
+        if args.slow is not None:
+            args.min_ms = args.slow
+
         results, log_lines = process_log(args.logfile, args)
 
         table = []

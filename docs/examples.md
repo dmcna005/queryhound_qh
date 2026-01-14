@@ -90,6 +90,12 @@ qh mongodb.log --slow --pvalue P90
 qh mongodb.log --scan --namespace sales.orders --output-csv sales_collscan.csv
 ```
 
+## 12a) Slow threshold set to 250ms
+
+```bash
+qh mongodb.log --slow 250
+```
+
 ## 13) Combine filter & error mode
 
 ```bash
@@ -134,4 +140,22 @@ Works with all modes, for example query analysis from a pipeline:
 
 ```bash
 cat mongo.json | qh --query
+```
+
+## 17) Inspect warnings
+
+```bash
+qh mongodb.log --warn
+```
+
+Focus on common operational warnings:
+
+```bash
+qh mongodb.log --warn --filter "MaxTimeMSExpired|ClientDisconnect|deprecated"
+```
+
+## 18) Combine warnings and errors
+
+```bash
+qh mongodb.log --error --warn
 ```

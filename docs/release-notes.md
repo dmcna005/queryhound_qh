@@ -25,15 +25,17 @@ journalctl -u mongod -o json | qh --error
 
 ### Notes
 
-## Version 0.7.4 (Latest)
+## Version 0.8.0 (Latest)
 
-**Release Date:** January 12, 2026
+**Release Date:** January 14, 2026
 
 ### Enhancements
 
 - Expanded `--error` output with richer columns matching operational dashboards:
   - Context, Namespace, App Name, Remote, plus compact `Attributes` JSON
 - Added `--errors` as an alias for `--error`
+- Added `--warn` to surface Warning (`W`) severity entries; can be combined with `--error` to include all W/E/F
+ - `--slow [N]` now accepts an optional threshold value. Using `--slow` defaults to 100ms; `--slow 250` sets 250ms.
 - Documentation updates reflecting the new error output
 - Rebuilt site to include updated Usage and Examples
 
@@ -43,6 +45,15 @@ journalctl -u mongod -o json | qh --error
 
 ```bash
 journalctl -u mongod -o json | qh --errors --verbose
+
+# Show warnings
+qh mongo.log --warn
+
+# Combine warnings with errors/fatals
+qh mongo.log --error --warn
+
+# Slow threshold set to 250ms
+qh mongo.log --slow 250
 ```
 
 - **Enhanced Query Analysis (`--query/-q`)**: Major improvements to query shape extraction

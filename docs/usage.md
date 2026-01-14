@@ -9,7 +9,7 @@ qh [logfile | -] [options]
 ## Options
 
 - `--scan` — Only show COLLSCAN queries (plan & shape truncated by default)
-- `--slow` — Only show slow queries (ms >= 100) (plan & shape truncated by default)
+- `--slow [N]` — Only show slow queries (ms >= N). If N is omitted, defaults to 100 (plan & shape truncated by default)
 - `--start-date <ISO>` — Start date (ISO 8601 or YYYY-MM-DD)
 - `--end-date <ISO>` — End date (ISO 8601 or YYYY-MM-DD)
 - `--namespace <db.collection>` — Filter by namespace
@@ -20,6 +20,7 @@ qh [logfile | -] [options]
 - `--filter <str ...>` — Show lines containing any provided strings (also prints matching raw lines)
 - `--connections` — Aggregate connection accepted events by Remote IP + App Name
 - `--error` — Show only Error / Fatal severity log lines (`s` in {E,F})
+- `--warn` — Show only Warning severity log lines (`s` == W)
 - `-q, --query` — Show top 10 distinct queries with shape, count, and source
 - `--verbose` — Disable truncation (Plan / App Name / Query Shape / Error Message)
 - `-v, --version` — Show version and exit
@@ -31,6 +32,7 @@ QueryHound can read from standard input. This is useful for piping logs from oth
 - Use `-` as the logfile to explicitly read from stdin.
 - If no logfile is provided and data is piped, QueryHound automatically reads from stdin.
 - Works with all modes: `--slow`, `--scan`, `--connections`, `--error`, `--query`.
+- Also works with `--warn` to surface Warning severity events.
 
 Examples:
 
@@ -78,6 +80,39 @@ Purpose: cluster similar logical operations without dumping full query bodies.
 
 Use `--verbose` to disable truncation of long Message/Attributes values.
 
+## Warnings vs Errors
+
+MongoDB structured logs include a severity field `s`:
+
+- `W` — Warning
+- `E` — Error
+- `F` — Fatal
+
+QueryHound provides dedicated flags to focus on these:
+
+- `--warn` shows only Warning (`W`) entries.
+- `--error` shows Error (`E`) and Fatal (`F`) entries.
+- Combine `--error --warn` to include all W/E/F severities.
+
+Examples:
+
+```bash
+# Show warnings such as re-auth attempts, timeouts, deprecations
+qh mongo.log --warn
+
+# Show only errors and fatals
+qh mongo.log --error
+
+# Include warnings together with errors/fatals
+qh mongo.log --error --warn
+
+# Focus on common operational warnings
+qh mongo.log --warn --filter "MaxTimeMSExpired|ClientDisconnect|deprecated"
+
+# Pipe JSON logs and include warnings
+journalctl -u mongod -o json | qh --warn
+```
+
 ## Query Mode
 
 `--query` shows the top 10 most frequently executed distinct queries. For each query it displays:
@@ -98,6 +133,7 @@ Common combos:
 qh mongo.log --slow --pstats
 qh mongo.log --scan --pvalue P90
 qh mongo.log --slow --namespace sales.orders --min-ms 250
+qh mongo.log --slow 250
 qh mongo.log --slow --start-date 2025-09-15 --end-date 2025-09-16 --pvalue P50
 qh mongo.log --error --verbose
 qh mongo.log --query --namespace mydb.users

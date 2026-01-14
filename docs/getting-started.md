@@ -34,3 +34,15 @@ Show only errors / fatals:
 ```bash
 qh mongo.log --error
 ```
+
+Show only warnings:
+
+```bash
+qh mongo.log --warn
+```
+
+Include warnings together with errors/fatals:
+
+```bash
+qh mongo.log --error --warn
+```
