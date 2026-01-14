@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 0.7.3 (Latest)
+## Version 0.7.3
 
 **Release Date:** December 23, 2025
 
@@ -28,7 +28,6 @@ journalctl -u mongod -o json | qh --error
 ## Version 0.7.4 (Latest)
 
 **Release Date:** January 12, 2026
-**Release Date:** September 24, 2025
 
 ### Enhancements
 
