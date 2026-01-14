@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.7.4)'
+        description: "Tag to release (e.g., v0.7.4)"
         required: true
       title:
-        description: 'Release title'
+        description: "Release title"
         required: false
       body:
-        description: 'Release notes body'
+        description: "Release notes body"
         required: false
 
 permissions:

@@ -26,4 +26,8 @@ No, it only exports the slow / scan summary table.
 
 ## How do I only see fatal issues?
 
-Use `--error` then filter the output (Fatal shows severity `F`).
+Use `--error` (it shows Error `E` and Fatal `F`). To focus only on fatals, filter the output by severity `F`.
+
+## How do I only see warnings?
+
+Use `--warn` to show Warning severity (`W`) entries. Combine `--error --warn` to include all W/E/F severities in one view.
