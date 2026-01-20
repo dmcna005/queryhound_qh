@@ -2,6 +2,50 @@
 
 Thank you for your interest in contributing to QueryHound! 🐾
 
+## Development Workflow
+
+### Branching Strategy
+
+**All work must be done on feature or bugfix branches - never commit directly to `main`.**
+
+Branch naming conventions:
+- Features: `feat/feature-name` or `feature/feature-name`
+- Bug fixes: `fix/bug-name` or `bugfix/bug-name`
+- Documentation: `docs/update-name`
+- CI/CD: `ci/workflow-name`
+- Releases: `release/x.y.z`
+
+### Development Process
+
+1. **Create a branch from main:**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feat/your-feature-name
+   ```
+
+2. **Make your changes and commit:**
+   ```bash
+   git add .
+   git commit -m "feat: add new feature"
+   ```
+
+3. **Push your branch:**
+   ```bash
+   git push origin feat/your-feature-name
+   ```
+
+4. **Create a Pull Request:**
+   - PRs automatically trigger CI tests
+   - Documentation PRs validate that docs build correctly
+   - **All PRs require review before merging**
+   - Use the PR template to provide complete information
+
+5. **After PR approval, merge to main:**
+   - Merging to `main` triggers automatic deployment workflows
+   - Documentation is automatically deployed to GitHub Pages
+   - Release workflows can be triggered manually
+
 ## Development Setup
 
 1. Clone the repository:
@@ -19,24 +63,6 @@ Thank you for your interest in contributing to QueryHound! 🐾
 3. Install in development mode:
    ```bash
    pip install -e .
-   ```
-
-## Making Changes
-
-1. Create a feature branch:
-   ```bash
-   git checkout -b feat/your-feature-name
-   ```
-
-2. Make your changes and commit with descriptive messages:
-   ```bash
-   git commit -m "feat: add new feature"
-   ```
-
-3. Push your branch and create a pull request:
-   ```bash
-   git push origin feat/your-feature-name
-   gh pr create --base main --head feat/your-feature-name
    ```
 
 ## Release Process
