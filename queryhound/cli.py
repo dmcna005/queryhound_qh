@@ -693,6 +693,10 @@ def main():
                 stream = sys.stdin if args.logfile == '-' else open(args.logfile, 'r')
                 try:
                     for line in stream:
+                        # Apply filter if specified
+                        if args.filter and not any(m.lower() in line.lower() for m in args.filter):
+                            continue
+                        
                         # Try JSON first; fallback to plaintext parser
                         entry = None
                         try:
