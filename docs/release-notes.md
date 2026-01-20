@@ -1,5 +1,46 @@
 # Release Notes
 
+## Version 0.8.0 (Latest)
+
+**Release Date:** January 14, 2026
+
+### Enhancements
+
+- Expanded `--error` output with richer columns matching operational dashboards:
+  - Context, Namespace, App Name, Remote, plus compact `Attributes` JSON
+- Added `--errors` as an alias for `--error`
+- Added `--warn` to surface Warning (`W`) severity entries; can be combined with `--error` to include all W/E/F
+- `--slow [N]` now accepts an optional threshold value. Using `--slow` defaults to 100ms; `--slow 250` sets 250ms.
+- **Enhanced Query Analysis (`--query/-q`)**: Major improvements to query shape extraction
+  - Now correctly filters for COMMAND entries only (`c: "COMMAND"`)
+  - Properly extracts query shapes from `attr.command.aggregate` and `attr.command.find`
+  - Shows detailed filter field names (e.g., `find:filter:status,age:sort:created`)
+  - Displays actual pipeline stages (e.g., `aggregate:pipeline:[$match,$group,$sort]`)
+- Documentation updates reflecting the new error output
+- Rebuilt site to include updated Usage and Examples
+
+### Examples
+
+```bash
+journalctl -u mongod -o json | qh --errors --verbose
+
+# Show warnings
+qh mongo.log --warn
+
+# Combine warnings with errors/fatals
+qh mongo.log --error --warn
+
+# Slow threshold set to 250ms
+qh mongo.log --slow 250
+
+# Now shows detailed query shapes like:
+# find:filter:status,age:sort:created
+# aggregate:pipeline:[$match,$group,$sort]
+qh --query /var/log/mongodb/mongod.log
+```
+
+---
+
 ## Version 0.7.3
 
 **Release Date:** December 23, 2025
