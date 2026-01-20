@@ -1,6 +1,32 @@
 # Release Notes
 
-## Version 0.8.0 (Latest)
+## Version 0.8.1 (Latest)
+
+**Release Date:** January 20, 2026
+
+### Bug Fixes
+
+- **Fixed `--filter` option in error/warn mode**: The `--filter` argument was being ignored when used with `--error` or `--warn`, causing all errors to be displayed instead of filtering by search terms
+  - Filter now properly applies to error/warn mode
+  - Case-insensitive matching works as expected
+  - Consistent behavior across all modes (`--slow`, `--scan`, `--error`, `--warn`)
+
+### Examples
+
+```bash
+# Filter errors by search term
+qh mongo.log --error --filter replication
+
+# Filter warnings
+qh mongo.log --warn --filter timeout
+
+# Combine error and warn with filter
+qh mongo.log --error --warn --filter connection
+```
+
+---
+
+## Version 0.8.0
 
 **Release Date:** January 14, 2026
 
