@@ -3,6 +3,10 @@ site_description: "CLI tool for parsing MongoDB logs with filters and summary st
 site_url: https://dmcna005.github.io/queryhound_qh/
 repo_name: dmcna005/queryhound_qh
 repo_url: https://github.com/dmcna005/queryhound_qh
+# Display latest version in header
+extra:
+  version:
+    provider: mike
 theme:
   name: material
   features:

@@ -29,15 +29,18 @@ jobs:
       - name: Install MkDocs
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs mkdocs-material
+          pip install mkdocs mkdocs-material mike
 
       - name: Build site
         run: mkdocs build --strict --clean
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
+        run: |
+          # Get the latest version tag
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/v//' || echo "dev")
+          # Deploy with mike (versions the docs)
+          python -m mike deploy $VERSION latest -m "Deploy version $VERSION"
+        env:
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
