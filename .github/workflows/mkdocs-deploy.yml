@@ -4,9 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/mkdocs-deploy.yml'
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/mkdocs-deploy.yml"
   push:
     branches: [main]
   workflow_dispatch:
@@ -34,22 +34,10 @@ jobs:
       - name: Build site
         run: mkdocs build --strict --clean
 
-      - name: Upload site to artifact
+      - name: Deploy to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: site
-          path: ./site
-          if-no-files-found: error
-          retention-days: 1
-      
-      - name: Deploy site via gh-pages branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          cd site
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Deploy: $(git rev-parse --short ${{ github.sha }})" || true
-          git push --force https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
